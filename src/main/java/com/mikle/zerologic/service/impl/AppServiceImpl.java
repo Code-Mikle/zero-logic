@@ -106,7 +106,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             chatHistoryService.addChatMessage(appId, displayMessage,
                     ChatHistoryMessageTypeEnum.USER.getValue(),
                     loginUser.getId(),
-                    attachmentId
+                    attachmentId,
+                    null
             );
             // 6. 设置监控上下文（用户 ID 和应用 ID）
             MonitorContextHolder.setContext(
@@ -128,14 +129,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                     )
             );
             // 8. 收集 AI 响应的内容，并且在完成后保存记录到对话历史
-            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum, attachmentId)
+            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser,
+                            codeGenTypeEnum, attachmentId, null)
                     .doFinally(
                             signalType -> {
                                 generationAppLockService.release(appId, permitId);
                                 MonitorContextHolder.clearContext();
                             }
                     );
-        } catch (Exception e) {
+        } catch (RuntimeException | Error e) {
             generationAppLockService.release(appId, permitId);
             MonitorContextHolder.clearContext();
             throw e;

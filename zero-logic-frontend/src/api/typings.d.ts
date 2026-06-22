@@ -113,11 +113,13 @@ declare namespace API {
 
   type ChatHistory = {
     id?: number
+    taskId?: number | string
     message?: string
     messageType?: string
     appId?: number
     userId?: number
     promptAttachmentVO?: promptAttachmentVO
+    ragRetrieval?: RagRetrievalVO
     createTime?: string
     updateTime?: string
     isDelete?: number
@@ -287,7 +289,7 @@ declare namespace API {
   }
 
   type GenerationTaskVO = {
-    id?: number
+    id?: number | string
     appId?: number
     userId?: number
     attachmentId?: number
@@ -299,10 +301,30 @@ declare namespace API {
     errorMessage?: string
     tokenUsage?: number
     toolCallCount?: number
+    ragRetrieval?: RagRetrievalVO
     startTime?: string
     endTime?: string
     createTime?: string
     updateTime?: string
+  }
+
+  type RagReferenceVO = {
+    documentId?: number | string
+    chunkId?: number | string
+    documentName?: string
+    chunkIndex?: number
+    contentSnippet?: string
+    score?: number
+  }
+
+  type RagRetrievalVO = {
+    taskId?: number | string
+    queryText?: string
+    topK?: number
+    hitCount?: number
+    injectedCharLength?: number
+    references?: RagReferenceVO[]
+    createTime?: string
   }
 
 

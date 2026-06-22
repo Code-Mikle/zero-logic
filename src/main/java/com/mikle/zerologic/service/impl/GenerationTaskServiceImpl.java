@@ -17,6 +17,7 @@ import com.mikle.zerologic.model.enums.CodeGenTypeEnum;
 import com.mikle.zerologic.model.enums.GenerationTaskStatusEnum;
 import com.mikle.zerologic.model.enums.GenerationTaskTypeEnum;
 import com.mikle.zerologic.model.vo.GenerationTaskVO;
+import com.mikle.zerologic.model.vo.RagRetrievalVO;
 import com.mikle.zerologic.service.*;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowRequest;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowService;
@@ -59,6 +60,9 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
     @Resource
     private KnowledgeIngestService knowledgeIngestService;
+
+    @Resource
+    private RagRetrievalLogQueryService ragRetrievalLogService;
 
     @Override
     public Long createGenerateTask(GenerationTaskCreateRequest request, User loginUser) {
@@ -155,7 +159,8 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                     task.getInputPrompt(),
                     ChatHistoryMessageTypeEnum.USER.getValue(),
                     loginUser.getId(),
-                    task.getAttachmentId()
+                    task.getAttachmentId(),
+                    taskId
             );
 
             String codeGenType = task.getCodeGenType();
@@ -177,7 +182,8 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
             Long appId = task.getAppId();
             Long attachmentId = task.getAttachmentId();
-            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum, attachmentId)
+            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser,
+                            codeGenTypeEnum, attachmentId, taskId)
                     .doOnComplete(() -> updateTaskSuccess(taskId))
                     .doOnError(e -> updateTaskFailed(taskId, e))
                     .doFinally(
@@ -188,7 +194,7 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                                 generationAppLockService.release(appId, permitId);
                             }
                     );
-        } catch (Exception e) {
+        } catch (RuntimeException | Error e) {
             generationAppLockService.release(task.getAppId(), permitId);
             updateTaskFailed(taskId, e);
             throw e;
@@ -289,6 +295,8 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
     private GenerationTaskVO toVO(GenerationTask task) {
         GenerationTaskVO vo = new GenerationTaskVO();
         BeanUtil.copyProperties(task, vo);
+        RagRetrievalVO ragRetrievalVO = ragRetrievalLogService.getByTaskId(task.getId(), task.getAppId(), task.getUserId());
+        vo.setRagRetrieval(ragRetrievalVO);
         return vo;
     }
 }

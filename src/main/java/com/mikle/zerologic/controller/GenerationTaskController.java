@@ -53,15 +53,27 @@ public class GenerationTaskController {
             HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Flux<String> contentFlux = generationTaskService.streamGenerateTask(taskId, loginUser);
+        GenerationTaskVO taskVO = generationTaskService.getTaskVO(taskId, loginUser);
 
-        return contentFlux
+        Flux<ServerSentEvent<String>> ragReferenceFlux = taskVO.getRagRetrieval() == null
+                ? Flux.empty()
+                : Flux.just(ServerSentEvent.<String>builder()
+                        .event("rag-references")
+                        .data(JSONUtil.toJsonStr(taskVO.getRagRetrieval()))
+                        .build());
+        Flux<ServerSentEvent<String>> tokenFlux = contentFlux
                 .map(chunk -> ServerSentEvent.<String>builder()
                         .data(JSONUtil.toJsonStr(Map.of("d", chunk)))
-                        .build())
-                .concatWith(Mono.just(ServerSentEvent.<String>builder()
+                        .build());
+
+        return Flux.concat(
+                ragReferenceFlux,
+                tokenFlux,
+                Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
                         .data("")
-                        .build()));
+                        .build())
+        );
     }
 
     @PostMapping("/{taskId}/cancel")

@@ -13,6 +13,15 @@ import reactor.core.publisher.Flux;
 @Slf4j
 public class SimpleTextStreamHandler {
 
+    /**
+     * 兼容开发期热更新前的调用签名，完整重启后主流程会使用带 taskId 的方法。
+     */
+    @Deprecated
+    public Flux<String> handle(Flux<String> originFlux,
+                               ChatHistoryService chatHistoryService, long appId,
+                               User loginUser, Long attachmentId) {
+        return handle(originFlux, chatHistoryService, appId, loginUser, attachmentId, null);
+    }
 
     /**
      * 处理传统流（HTML, MULTI_FILE）
@@ -25,8 +34,8 @@ public class SimpleTextStreamHandler {
      * @return 处理后的流
      */
     public Flux<String> handle(Flux<String> originFlux,
-                               ChatHistoryService chatHistoryService,
-                               long appId, User loginUser, Long attachmentId) {
+                               ChatHistoryService chatHistoryService, long appId,
+                               User loginUser, Long attachmentId, Long taskId) {
         StringBuilder aiResponseBuilder = new StringBuilder();
         return originFlux
                 .map(chunk -> {
@@ -40,7 +49,8 @@ public class SimpleTextStreamHandler {
                     chatHistoryService.addChatMessage(appId, aiResponse,
                             ChatHistoryMessageTypeEnum.AI.getValue(),
                             loginUser.getId(),
-                            null);
+                            null,
+                            taskId);
                 })
                 .doOnError(error -> {
                     // 如果AI回复失败，也要记录错误消息
@@ -48,7 +58,8 @@ public class SimpleTextStreamHandler {
                     chatHistoryService.addChatMessage(appId, errorMessage,
                             ChatHistoryMessageTypeEnum.AI.getValue(),
                             loginUser.getId(),
-                            null
+                            null,
+                            taskId
                     );
                 });
     }

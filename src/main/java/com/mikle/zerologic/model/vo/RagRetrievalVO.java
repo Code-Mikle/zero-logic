@@ -4,23 +4,25 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
-public class ChatHistoryVo implements Serializable {
+public class RagRetrievalVO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private Long id;
-
     private Long taskId;
 
-    private String message;
+    private String queryText;
 
-    private String messageType;
+    private Integer topK;
 
-    private PromptAttachmentVO promptAttachmentVO;
+    private Integer hitCount;
 
-    private RagRetrievalVO ragRetrieval;
+    private Integer injectedCharLength;
+
+    private List<RagReferenceVO> references;
 
     private LocalDateTime createTime;
+
 }

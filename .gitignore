@@ -3,12 +3,11 @@ application-local.yml
 application-prod.yml
 tmp
 
-AGENTS.md
-ARCHITECTURE_REVIEW.md
-README.md
-
 resources/application-local.yml
 resources/application-prod.yml
+
+README.md
+zero-logic-frontend/README.md
 
 # Certificates and private keys
 *.pem

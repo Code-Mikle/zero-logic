@@ -66,9 +66,18 @@
               </div>
               <div class="message-content">
                 <MarkdownRenderer v-if="message.content" :content="message.content" />
+                <RagReferenceList
+                  v-if="message.ragRetrieval"
+                  :retrieval="message.ragRetrieval"
+                />
                 <div v-if="message.loading" class="loading-indicator">
                   <a-spin size="small" />
                   <span>AI 正在思考...</span>
+                </div>
+                <div v-if="message.taskId && !message.loading" class="message-meta-actions">
+                  <a-button type="link" size="small" @click="openTaskDetail(message.taskId)">
+                    查看任务详情
+                  </a-button>
                 </div>
               </div>
             </div>
@@ -234,6 +243,10 @@
       :deploy-url="deployUrl"
       @open-site="openDeployedSite"
     />
+    <GenerationTaskDrawer
+      v-model:open="taskDrawerVisible"
+      :task-id="selectedTaskId"
+    />
   </div>
 </template>
 
@@ -270,6 +283,8 @@ import {
 import { uploadAttachment } from '@/api/attachmentControllers.ts'
 import { createGenerationTask } from '@/api/generationTaskController'
 import AttachmentCard from '@/components/AttachmentCard.vue'
+import RagReferenceList from '@/components/RagReferenceList.vue'
+import GenerationTaskDrawer from '@/components/GenerationTaskDrawer.vue'
 
 const route = useRoute()
 
@@ -299,12 +314,16 @@ interface Message {
   attachment?: API.promptAttachmentVO
   loading?: boolean
   createTime?: string
+  taskId?: number | string
+  ragRetrieval?: API.RagRetrievalVO
 }
 
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+const taskDrawerVisible = ref(false)
+const selectedTaskId = ref<number | string>()
 
 // 对话历史相关
 const loadingHistory = ref(false)
@@ -376,6 +395,8 @@ const loadChatHistory = async (isLoadMore = false) => {
             content: chat.message || '',
             attachment: chat.promptAttachmentVO,
             createTime: chat.createTime,
+            taskId: chat.taskId,
+            ragRetrieval: chat.ragRetrieval,
           }))
           .reverse() // 反转数组，让老消息在前
         if (isLoadMore) {
@@ -656,6 +677,7 @@ const generateCode = async (
     }
 
     const taskId = createRes.data.data
+    messages.value[aiMessageIndex].taskId = taskId
     const url = `${baseURL}/generation/task/${taskId}/stream`
 
     eventSource = new EventSource(url, {
@@ -663,6 +685,15 @@ const generateCode = async (
     })
 
     let fullContent = ''
+
+    eventSource.addEventListener('rag-references', function (event: MessageEvent) {
+      if (streamCompleted) return
+      try {
+        messages.value[aiMessageIndex].ragRetrieval = JSON.parse(event.data) as API.RagRetrievalVO
+      } catch (error) {
+        console.error('解析 RAG 引用失败:', error)
+      }
+    })
 
     // 处理接收到的消息
     eventSource.onmessage = function (event) {
@@ -754,6 +785,11 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
   messages.value[aiMessageIndex].loading = false
   message.error('生成失败，请重试')
   isGenerating.value = false
+}
+
+const openTaskDetail = (taskId: number | string) => {
+  selectedTaskId.value = taskId
+  taskDrawerVisible.value = true
 }
 
 // 更新预览
@@ -1046,6 +1082,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   color: #666;
+}
+
+.message-meta-actions {
+  margin-top: 6px;
+  text-align: right;
+}
+
+.message-meta-actions :deep(.ant-btn) {
+  height: auto;
+  padding: 0;
+  color: #667a74;
+  font-size: 12px;
 }
 
 /* 加载更多按钮 */

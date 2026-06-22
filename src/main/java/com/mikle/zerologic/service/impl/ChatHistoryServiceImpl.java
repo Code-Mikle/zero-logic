@@ -17,9 +17,11 @@ import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.enums.ChatHistoryMessageTypeEnum;
 import com.mikle.zerologic.model.vo.ChatHistoryVo;
 import com.mikle.zerologic.model.vo.PromptAttachmentVO;
+import com.mikle.zerologic.model.vo.RagRetrievalVO;
 import com.mikle.zerologic.service.AppService;
 import com.mikle.zerologic.service.ChatHistoryService;
 import com.mikle.zerologic.service.PromptAttachmentService;
+import com.mikle.zerologic.service.RagRetrievalLogQueryService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -46,8 +48,11 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
     @Resource
     private PromptAttachmentService promptAttachmentService;
 
+    @Resource
+    private RagRetrievalLogQueryService ragRetrievalLogQueryService;
+
     @Override
-    public boolean addChatMessage(Long appId, String message, String messageType, Long userId, Long attachmentId) {
+    public boolean addChatMessage(Long appId, String message, String messageType, Long userId, Long attachmentId, Long taskId) {
         // 基础校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "消息内容不能为空");
@@ -63,6 +68,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
                 .messageType(messageType)
                 .userId(userId)
                 .attachmentId(attachmentId)
+                .taskId(taskId)
                 .build();
         return this.save(chatHistory);
     }
@@ -138,14 +144,27 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
                             attachment -> attachment // 表示 Map 的 value 从哪里来，value 就是当前这个附件对象本身
                     ));
         }
+
+        List<Long> taskIdList = chatHistoryPageRecords.stream()
+                .map(ChatHistory::getTaskId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, RagRetrievalVO> ragRetrievalMap =
+                ragRetrievalLogQueryService.listByTaskIds(taskIdList, appId, app.getUserId());
         List<ChatHistoryVo> chatHistoryVoList = new ArrayList<>();
 
         for (ChatHistory chatHistory : chatHistoryPageRecords) {
             ChatHistoryVo vo = new ChatHistoryVo();
             vo.setId(chatHistory.getId());
+            vo.setTaskId(chatHistory.getTaskId());
             vo.setMessage(chatHistory.getMessage());
             vo.setMessageType(chatHistory.getMessageType());
             vo.setCreateTime(chatHistory.getCreateTime());
+            if (ChatHistoryMessageTypeEnum.AI.getValue().equals(chatHistory.getMessageType())
+                    && chatHistory.getTaskId() != null) {
+                vo.setRagRetrieval(ragRetrievalMap.get(chatHistory.getTaskId()));
+            }
 
             Long attachmentId = chatHistory.getAttachmentId();
 
@@ -169,6 +188,7 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         Page<ChatHistoryVo> voPage = Page.of(chatHistoryPage.getPageNumber(), chatHistoryPage.getPageSize());
         voPage.setRecords(chatHistoryVoList);
         voPage.setTotalPage(chatHistoryPage.getTotalPage());
+        voPage.setTotalRow(chatHistoryPage.getTotalRow());
 
         return voPage;
     }

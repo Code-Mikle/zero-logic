@@ -29,6 +29,16 @@ public class JsonMessageStreamHandler {
     private ToolManager toolManager;
 
     /**
+     * 兼容开发期热更新前的调用签名，完整重启后主流程会使用带 taskId 的方法。
+     */
+    @Deprecated
+    public Flux<String> handle(Flux<String> originFlux,
+                               ChatHistoryService chatHistoryService,
+                               long appId, User loginUser, Long attachmentId) {
+        return handle(originFlux, chatHistoryService, appId, loginUser, attachmentId, null);
+    }
+
+    /**
      * 处理 TokenStream（VUE_PROJECT）
      * 解析 JSON 消息并重组为完整的响应格式
      *
@@ -40,7 +50,7 @@ public class JsonMessageStreamHandler {
      */
     public Flux<String> handle(Flux<String> originFlux,
                                ChatHistoryService chatHistoryService,
-                               long appId, User loginUser, Long attachmentId) {
+                               long appId, User loginUser, Long attachmentId, Long taskId) {
         // 收集数据用于生成后端记忆格式
         StringBuilder chatHistoryStringBuilder = new StringBuilder();
         // 用于跟踪已经见过的工具ID，判断是否是第一次调用
@@ -57,7 +67,8 @@ public class JsonMessageStreamHandler {
                     chatHistoryService.addChatMessage(appId, aiResponse,
                             ChatHistoryMessageTypeEnum.AI.getValue(),
                             loginUser.getId(),
-                            null
+                            null,
+                            taskId
                     );
                 })
                 .doOnError(error -> {
@@ -66,7 +77,8 @@ public class JsonMessageStreamHandler {
                     chatHistoryService.addChatMessage(appId, errorMessage,
                             ChatHistoryMessageTypeEnum.AI.getValue(),
                             loginUser.getId(),
-                            null
+                            null,
+                            taskId
                     );
                 });
     }
@@ -121,4 +133,4 @@ public class JsonMessageStreamHandler {
             }
         }
     }
-} 
+}

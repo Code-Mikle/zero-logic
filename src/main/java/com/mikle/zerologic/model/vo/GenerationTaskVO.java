@@ -34,6 +34,8 @@ public class GenerationTaskVO implements Serializable {
 
     private Integer toolCallCount;
 
+    private RagRetrievalVO ragRetrieval;
+
     private LocalDateTime startTime;
 
     private LocalDateTime endTime;

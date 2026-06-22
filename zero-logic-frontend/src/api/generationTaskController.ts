@@ -2,7 +2,7 @@ import request from '@/request'
 
 export interface CreateGenerationTaskResponse {
   code?: number
-  data?: number
+  data?: number | string
   message?: string
 }
 
