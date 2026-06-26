@@ -3,7 +3,9 @@ package com.mikle.zerologic.workflow.generation.node;
 import cn.hutool.core.util.StrUtil;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
+import com.mikle.zerologic.service.GenerationTaskProgressService;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowContext;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
@@ -14,6 +16,9 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 @Slf4j
 @Component
 public class PrepareContextNode {
+
+    @Resource
+    private GenerationTaskProgressService taskProgressService;
 
     public AsyncNodeAction<MessagesState<String>> create() {
         return node_async(state -> {
@@ -33,6 +38,7 @@ public class PrepareContextNode {
             }
 
             context.setCurrentStep("prepare_context");
+            taskProgressService.updateStep(context.getTaskId(), "prepare_context");
             log.info("生成工作流节点完成: prepare_context, appId={}, codeGenType={}",
                     context.getAppId(), context.getCodeGenType().getValue());
 

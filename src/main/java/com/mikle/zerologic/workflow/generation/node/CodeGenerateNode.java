@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import com.mikle.zerologic.core.AiCodeGeneratorFacade;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
+import com.mikle.zerologic.service.GenerationTaskProgressService;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowContext;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,9 @@ public class CodeGenerateNode {
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
 
+    @Resource
+    private GenerationTaskProgressService taskProgressService;
+
     public AsyncNodeAction<MessagesState<String>> create(AtomicReference<Flux<String>> codeStreamRef) {
         return node_async(state -> {
             GenerationWorkflowContext context = GenerationWorkflowContext.getContext(state);
@@ -41,12 +45,16 @@ public class CodeGenerateNode {
             Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(
                     message,
                     context.getCodeGenType(),
-                    context.getAppId()
+                    context.getAppId(),
+                    context.getTaskId(),
+                    context.getUserId(),
+                    "generate"
             );
 
             codeStreamRef.set(codeStream);
 
             context.setCurrentStep("code_generate");
+            taskProgressService.updateStep(context.getTaskId(), "code_generate");
 
             log.info("生成工作流节点完成: code_generate, appId={}", context.getAppId());
 

@@ -1,17 +1,17 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
-import com.mikle.zerologic.constant.AppConstant;
+import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * 文件删除工具
@@ -21,19 +21,27 @@ import java.nio.file.Paths;
 @Component
 public class FileDeleteTool extends BaseTool {
 
+    @Resource
+    private ProjectToolPathResolver pathResolver;
+
+    @Resource
+    private ToolAuditService toolAuditService;
+
     @Tool("删除指定路径的文件")
     public String deleteFile(
             @P("文件的相对路径")
             String relativeFilePath,
             @ToolMemoryId Long appId
     ) {
+        JSONObject arguments = new JSONObject()
+                .set("relativeFilePath", relativeFilePath);
+        return toolAuditService.audit(this, appId, arguments,
+                () -> doDeleteFile(relativeFilePath, appId));
+    }
+
+    private String doDeleteFile(String relativeFilePath, Long appId) {
         try {
-            Path path = Paths.get(relativeFilePath);
-            if (!path.isAbsolute()) {
-                String projectDirName = "vue_project_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath);
-            }
+            Path path = pathResolver.resolve(appId, relativeFilePath);
             if (!Files.exists(path)) {
                 return "警告：文件不存在，无需删除 - " + relativeFilePath;
             }
@@ -48,11 +56,21 @@ public class FileDeleteTool extends BaseTool {
             Files.delete(path);
             log.info("成功删除文件: {}", path.toAbsolutePath());
             return "文件删除成功: " + relativeFilePath;
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             String errorMessage = "删除文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
             return errorMessage;
         }
+    }
+
+    @Override
+    public ToolRiskLevelEnum getRiskLevel() {
+        return ToolRiskLevelEnum.HIGH;
+    }
+
+    @Override
+    public boolean isMutating() {
+        return true;
     }
 
     /**

@@ -18,6 +18,16 @@ attachment:
 
 generation:
   app-permit-lease-minutes: 30
+  build:
+    enabled: true
+    install-timeout-seconds: 300
+    build-timeout-seconds: 180
+    max-log-chars: 60000
+  repair:
+    enabled: true
+    max-attempts: 2
+    timeout-seconds: 180
+    max-build-log-chars: 12000
 
 rag:
   enabled: true

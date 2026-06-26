@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class GenerationTaskVO implements Serializable {
@@ -35,6 +36,12 @@ public class GenerationTaskVO implements Serializable {
     private Integer toolCallCount;
 
     private RagRetrievalVO ragRetrieval;
+
+    private GenerationBuildRecordVO latestBuild;
+
+    private List<GenerationRepairRecordVO> repairs;
+
+    private List<ToolCallRecordVO> toolCalls;
 
     private LocalDateTime startTime;
 

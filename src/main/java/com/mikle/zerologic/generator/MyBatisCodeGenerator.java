@@ -15,7 +15,7 @@ public class MyBatisCodeGenerator {
 
     // 要生成的表名
     private static final String[] TABLE_NAMES = {
-            "chat_history"
+            "tool_call_record"
     };
 
     public static void main(String[] args) {

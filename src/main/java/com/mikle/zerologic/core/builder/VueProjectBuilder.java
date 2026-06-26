@@ -1,149 +1,132 @@
 package com.mikle.zerologic.core.builder;
 
-import cn.hutool.core.util.RuntimeUtil;
+import com.mikle.zerologic.config.BuildProperties;
+import com.mikle.zerologic.core.build.BuildCommandExecutor;
+import com.mikle.zerologic.core.build.model.BuildResult;
+import com.mikle.zerologic.core.build.model.CommandResult;
+import com.mikle.zerologic.model.enums.GenerationBuildStatusEnum;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.util.concurrent.TimeUnit;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Comparator;
+import java.util.List;
 
-/**
- * 构建 Vue 项目
- */
 @Slf4j
 @Component
 public class VueProjectBuilder {
 
-    /**
-     * 异步构建 Vue 项目
-     *
-     * @param projectPath
-     */
+    @Resource
+    private BuildCommandExecutor buildCommandExecutor;
+
+    @Resource
+    private BuildProperties buildProperties;
+
+    public boolean buildProject(String projectPath) {
+        return Boolean.TRUE.equals(buildProjectWithResult(projectPath).getSuccess());
+    }
+
     public void buildProjectAsync(String projectPath) {
         Thread.ofVirtual().name("vue-builder-" + System.currentTimeMillis())
-                .start(() -> {
-                    try {
-                        buildProject(projectPath);
-                    } catch (Exception e) {
-                        log.error("异步构建 Vue 项目时发生异常: {}", e.getMessage(), e);
-                    }
-                });
+                .start(() -> buildProject(projectPath));
     }
 
-    /**
-     * 构建 Vue 项目
-     *
-     * @param projectPath 项目根目录路径
-     * @return 是否构建成功
-     */
-    public boolean buildProject(String projectPath) {
-        File projectDir = new File(projectPath);
-        if (!projectDir.exists() || !projectDir.isDirectory()) {
-            log.error("项目目录不存在：{}", projectPath);
-            return false;
+    public BuildResult buildProjectWithResult(String projectPath) {
+        long startTime = System.currentTimeMillis();
+        Path projectDir = Path.of(projectPath).toAbsolutePath().normalize();
+        Path packageJson = projectDir.resolve("package.json");
+        if (!Files.isRegularFile(packageJson)) {
+            return failed(projectDir, "未找到 package.json", null, startTime);
         }
-        // 检查是否有 package.json 文件
-        File packageJsonFile = new File(projectDir, "package.json");
-        if (!packageJsonFile.exists()) {
-            log.error("项目目录中没有 package.json 文件：{}", projectPath);
-            return false;
-        }
-        log.info("开始构建 Vue 项目：{}", projectPath);
-        // 执行 npm install
-        if (!executeNpmInstall(projectDir)) {
-            log.error("npm install 执行失败：{}", projectPath);
-            return false;
-        }
-        // 执行 npm run build
-        if (!executeNpmBuild(projectDir)) {
-            log.error("npm run build 执行失败：{}", projectPath);
-            return false;
-        }
-        // 验证 dist 目录是否生成
-        File distDir = new File(projectDir, "dist");
-        if (!distDir.exists() || !distDir.isDirectory()) {
-            log.error("构建完成但 dist 目录未生成：{}", projectPath);
-            return false;
-        }
-        log.info("Vue 项目构建成功，dist 目录：{}", projectPath);
-        return true;
-    }
 
-    /**
-     * 执行 npm install 命令
-     */
-    private boolean executeNpmInstall(File projectDir) {
-        log.info("执行 npm install...");
-        String command = String.format("%s install", buildCommand("npm"));
-        return executeCommand(projectDir, command, 300); // 5分钟超时
-    }
-
-    /**
-     * 执行 npm run build 命令
-     */
-    private boolean executeNpmBuild(File projectDir) {
-        log.info("执行 npm run build...");
-        String command = String.format("%s run build", buildCommand("npm"));
-        return executeCommand(projectDir, command, 180); // 3分钟超时
-    }
-
-    /**
-     * 根据操作系统构造命令
-     *
-     * @param baseCommand
-     * @return
-     */
-    private String buildCommand(String baseCommand) {
-        if (isWindows()) {
-            return baseCommand + ".cmd";
-        }
-        return baseCommand;
-    }
-
-    /**
-     * 操作系统检测
-     *
-     * @return
-     */
-    private boolean isWindows() {
-        return System.getProperty("os.name").toLowerCase().contains("windows");
-    }
-
-    /**
-     * 执行命令
-     *
-     * @param workingDir     工作目录
-     * @param command        命令字符串
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 是否执行成功
-     */
-    private boolean executeCommand(File workingDir, String command, int timeoutSeconds) {
+        Path distDir = projectDir.resolve("dist").normalize();
         try {
-            log.info("在目录 {} 中执行命令: {}", workingDir.getAbsolutePath(), command);
-            Process process = RuntimeUtil.exec(
-                    null,
-                    workingDir,
-                    command.split("\\s+") // 命令分割为数组
-            );
-            // 等待进程完成，设置超时
-            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
-            if (!finished) {
-                log.error("命令执行超时（{}秒），强制终止进程", timeoutSeconds);
-                process.destroyForcibly();
-                return false;
-            }
-            int exitCode = process.exitValue();
-            if (exitCode == 0) {
-                log.info("命令执行成功: {}", command);
-                return true;
-            } else {
-                log.error("命令执行失败，退出码: {}", exitCode);
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("执行命令失败: {}, 错误信息: {}", command, e.getMessage());
-            return false;
+            deleteDirectory(distDir);
+        } catch (IOException e) {
+            return failed(projectDir, "清理旧 dist 目录失败：" + e.getMessage(), null, startTime);
         }
+
+        List<String> installCommand = Files.isRegularFile(projectDir.resolve("package-lock.json"))
+                ? List.of(npmCommand(), "ci", "--no-audit", "--no-fund")
+                : List.of(npmCommand(), "install", "--no-audit", "--no-fund");
+        CommandResult installResult = buildCommandExecutor.execute(
+                projectDir, installCommand, Duration.ofSeconds(buildProperties.getInstallTimeoutSeconds()));
+        if (!commandSucceeded(installResult)) {
+            return fromCommand(projectDir, installResult, null, startTime);
+        }
+
+        List<String> buildCommand = List.of(npmCommand(), "run", "build");
+        CommandResult buildResult = buildCommandExecutor.execute(
+                projectDir, buildCommand, Duration.ofSeconds(buildProperties.getBuildTimeoutSeconds()));
+        String combinedLog = "[依赖安装]\n" + installResult.getOutput()
+                + "\n\n[项目构建]\n" + buildResult.getOutput();
+        BuildResult result = fromCommand(projectDir, buildResult, combinedLog, startTime);
+        if (Boolean.TRUE.equals(result.getSuccess())
+                && !Files.isRegularFile(distDir.resolve("index.html"))) {
+            result.setSuccess(false);
+            result.setStatus(GenerationBuildStatusEnum.FAILED.getValue());
+            result.setLogText(combinedLog + "\n构建命令成功，但未生成 dist/index.html");
+            result.setArtifactPath(null);
+        } else if (Boolean.TRUE.equals(result.getSuccess())) {
+            result.setArtifactPath(distDir.toString());
+        }
+        result.setCommand(String.join(" ", installCommand) + " && " + String.join(" ", buildCommand));
+        return result;
     }
 
+    private BuildResult fromCommand(Path projectDir, CommandResult commandResult,
+                                    String overrideLog, long startTime) {
+        boolean timedOut = Boolean.TRUE.equals(commandResult.getTimedOut());
+        boolean success = commandSucceeded(commandResult);
+        return BuildResult.builder()
+                .success(success)
+                .status(timedOut ? GenerationBuildStatusEnum.TIMEOUT.getValue()
+                        : success ? GenerationBuildStatusEnum.SUCCESS.getValue()
+                        : GenerationBuildStatusEnum.FAILED.getValue())
+                .command(String.join(" ", commandResult.getCommand()))
+                .exitCode(commandResult.getExitCode())
+                .logText(overrideLog == null ? commandResult.getOutput() : overrideLog)
+                .durationMs(System.currentTimeMillis() - startTime)
+                .timedOut(timedOut)
+                .projectPath(projectDir.toString())
+                .build();
+    }
+
+    private BuildResult failed(Path projectDir, String message,
+                               Integer exitCode, long startTime) {
+        return BuildResult.builder()
+                .success(false)
+                .status(GenerationBuildStatusEnum.FAILED.getValue())
+                .command("project-validation")
+                .exitCode(exitCode)
+                .logText(message)
+                .durationMs(System.currentTimeMillis() - startTime)
+                .timedOut(false)
+                .projectPath(projectDir.toString())
+                .build();
+    }
+
+    private boolean commandSucceeded(CommandResult result) {
+        return !Boolean.TRUE.equals(result.getTimedOut())
+                && Integer.valueOf(0).equals(result.getExitCode());
+    }
+
+    private String npmCommand() {
+        return System.getProperty("os.name").toLowerCase().contains("windows") ? "npm.cmd" : "npm";
+    }
+
+    private void deleteDirectory(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
+    }
 }

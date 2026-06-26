@@ -28,7 +28,7 @@ create table if not exists user
 ) comment '用户' collate = utf8mb4_unicode_ci;
 
 -- 应用表
-create table app
+create table if not exists app
 (
     id           bigint auto_increment comment 'id' primary key,
     appName      varchar(256)                       null comment '应用名称',
@@ -50,7 +50,7 @@ create table app
 ) comment '应用' collate = utf8mb4_unicode_ci;
 
 -- 对话历史表
-create table chat_history
+create table if not exists chat_history
 (
     id          bigint auto_increment comment 'id' primary key,
     message     text                               not null comment '消息',
@@ -69,7 +69,7 @@ create table chat_history
     INDEX idx_taskId (taskId)
 ) comment '对话历史' collate = utf8mb4_unicode_ci;
 
-CREATE TABLE prompt_attachment (
+CREATE TABLE IF NOT EXISTS prompt_attachment (
                                    id bigint AUTO_INCREMENT PRIMARY KEY,
                                    fileName varchar(256) NOT NULL,
                                    fileExtension varchar(32) NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE prompt_attachment (
 );
 
 
-CREATE TABLE generation_task (
+CREATE TABLE IF NOT EXISTS generation_task (
          id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
          appId bigint NOT NULL COMMENT '应用 ID',
          userId bigint NOT NULL COMMENT '用户 ID',
@@ -114,7 +114,7 @@ CREATE TABLE generation_task (
          INDEX idx_userId_createTime (userId, createTime)
 );
 
-CREATE TABLE knowledge_document (
+CREATE TABLE IF NOT EXISTS knowledge_document (
                                     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                     appId bigint NOT NULL COMMENT '应用 ID',
                                     userId bigint NOT NULL COMMENT '用户 ID',
@@ -133,7 +133,7 @@ CREATE TABLE knowledge_document (
                                     INDEX idx_contentHash (contentHash)
 );
 
-CREATE TABLE knowledge_chunk (
+CREATE TABLE IF NOT EXISTS knowledge_chunk (
                                  id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                  documentId bigint NOT NULL COMMENT '文档 ID',
                                  appId bigint NOT NULL COMMENT '应用 ID',
@@ -151,7 +151,7 @@ CREATE TABLE knowledge_chunk (
                                  INDEX idx_userId (userId)
 );
 
-CREATE TABLE knowledge_embedding (
+CREATE TABLE IF NOT EXISTS knowledge_embedding (
                                      id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                      chunkId bigint NOT NULL COMMENT 'chunk ID',
                                      appId bigint NOT NULL COMMENT '应用 ID',
@@ -167,7 +167,7 @@ CREATE TABLE knowledge_embedding (
                                      INDEX idx_userId (userId)
 );
 
-CREATE TABLE rag_retrieval_log (
+CREATE TABLE IF NOT EXISTS rag_retrieval_log (
                                    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                    taskId bigint NULL COMMENT '任务 ID',
                                    appId bigint NOT NULL COMMENT '应用 ID',
@@ -184,4 +184,75 @@ CREATE TABLE rag_retrieval_log (
                                    INDEX idx_appId (appId),
                                    INDEX idx_userId (userId),
                                    INDEX idx_createTime (createTime)
+);
+
+CREATE TABLE IF NOT EXISTS generation_build_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    taskId bigint NOT NULL COMMENT '生成任务 ID',
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NOT NULL COMMENT '用户 ID',
+    attemptNo int NOT NULL DEFAULT 1 COMMENT '构建轮次',
+    codeGenType varchar(64) NOT NULL COMMENT '代码生成类型',
+    status varchar(32) NOT NULL COMMENT 'running/success/failed/timeout',
+    command varchar(1024) NULL COMMENT '执行命令',
+    exitCode int NULL COMMENT '进程退出码',
+    logText mediumtext NULL COMMENT '构建日志',
+    durationMs bigint NOT NULL DEFAULT 0 COMMENT '构建耗时（毫秒）',
+    timedOut tinyint NOT NULL DEFAULT 0 COMMENT '是否超时',
+    projectPath varchar(1024) NOT NULL COMMENT '项目目录',
+    artifactPath varchar(1024) NULL COMMENT '构建产物目录',
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_task_attempt (taskId, attemptNo),
+    INDEX idx_taskId (taskId),
+    INDEX idx_appId (appId)
+);
+
+CREATE TABLE IF NOT EXISTS generation_repair_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    taskId bigint NOT NULL,
+    appId bigint NOT NULL,
+    userId bigint NOT NULL,
+    repairAttempt int NOT NULL,
+    sourceBuildRecordId bigint NOT NULL,
+    status varchar(32) NOT NULL,
+    errorSummary text NULL,
+    suspectedFiles text NULL,
+    changedFiles text NULL,
+    aiResponse text NULL,
+    errorMessage varchar(2048) NULL,
+    durationMs bigint NOT NULL DEFAULT 0,
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_task_repair_attempt (taskId, repairAttempt),
+    INDEX idx_taskId (taskId),
+    INDEX idx_appId (appId)
+);
+
+
+CREATE TABLE IF NOT EXISTS tool_call_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    taskId bigint NULL COMMENT '生成任务 ID',
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NULL COMMENT '用户 ID',
+    toolName varchar(128) NOT NULL COMMENT '工具名称',
+    displayName varchar(128) NOT NULL COMMENT '工具展示名',
+    toolCategory varchar(64) NOT NULL COMMENT '工具类别：file/build/deploy/knowledge/control',
+    riskLevel varchar(32) NOT NULL COMMENT '风险等级：low/medium/high',
+    callSource varchar(64) NULL COMMENT '调用来源：generate/repair/manual',
+    status varchar(32) NOT NULL COMMENT 'success/failed/rejected',
+    argumentsJson mediumtext NULL COMMENT '脱敏后的调用参数',
+    resultSummary mediumtext NULL COMMENT '执行结果摘要',
+    errorMessage varchar(2048) NULL COMMENT '错误信息',
+    durationMs bigint NOT NULL DEFAULT 0 COMMENT '耗时',
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    INDEX idx_taskId (taskId),
+    INDEX idx_appId (appId),
+    INDEX idx_toolName (toolName),
+    INDEX idx_status (status),
+    INDEX idx_createTime (createTime)
 );

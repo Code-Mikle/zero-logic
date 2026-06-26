@@ -4,6 +4,7 @@ import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.rag.RagService;
 import com.mikle.zerologic.rag.model.RagResult;
+import com.mikle.zerologic.service.GenerationTaskProgressService;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowContext;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,9 @@ public class RagRetrieveNode {
     @Resource
     private RagService ragService;
 
+    @Resource
+    private GenerationTaskProgressService taskProgressService;
+
     @Value("${rag.enabled:true}")
     private boolean ragEnabled;
 
@@ -41,6 +45,7 @@ public class RagRetrieveNode {
                 context.setRagContext("");
                 context.setRagReferences(List.of());
                 context.setCurrentStep("rag_retrieve_skipped");
+                taskProgressService.updateStep(context.getTaskId(), "rag_retrieve_skipped");
                 return GenerationWorkflowContext.saveContext(context);
             }
 
@@ -59,12 +64,14 @@ public class RagRetrieveNode {
                 context.setRagContext("");
                 context.setRagReferences(List.of());
                 context.setCurrentStep("rag_retrieve_degraded");
+                taskProgressService.updateStep(context.getTaskId(), "rag_retrieve_degraded");
                 return GenerationWorkflowContext.saveContext(context);
             }
 
             context.setRagContext(ragResult.getContextText());
             context.setRagReferences(ragResult.getReferences());
             context.setCurrentStep("rag_retrieve");
+            taskProgressService.updateStep(context.getTaskId(), "rag_retrieve");
 
             log.info("RAG 检索完成，appId={}, taskId={}, hitCount={}",
                     context.getAppId(),

@@ -302,6 +302,9 @@ declare namespace API {
     tokenUsage?: number
     toolCallCount?: number
     ragRetrieval?: RagRetrievalVO
+    latestBuild?: GenerationBuildRecordVO
+    repairs?: GenerationRepairRecordVO[]
+    toolCalls?: ToolCallRecordVO[]
     startTime?: string
     endTime?: string
     createTime?: string
@@ -315,6 +318,48 @@ declare namespace API {
     chunkIndex?: number
     contentSnippet?: string
     score?: number
+  }
+
+  type GenerationBuildRecordVO = {
+    id?: number | string
+    attemptNo?: number
+    status?: string
+    command?: string
+    exitCode?: number
+    logText?: string
+    durationMs?: number
+    timedOut?: boolean
+    artifactPath?: string
+    createTime?: string
+  }
+
+  type GenerationRepairRecordVO = {
+    id?: number | string
+    repairAttempt?: number
+    sourceBuildRecordId?: number | string
+    status?: string
+    errorSummary?: string
+    suspectedFiles?: string[]
+    changedFiles?: string[]
+    aiResponse?: string
+    errorMessage?: string
+    durationMs?: number
+    createTime?: string
+  }
+
+  type ToolCallRecordVO = {
+    id?: number | string
+    toolName?: string
+    displayName?: string
+    toolCategory?: string
+    riskLevel?: string
+    callSource?: string
+    status?: string
+    argumentsJson?: string
+    resultSummary?: string
+    errorMessage?: string
+    durationMs?: number
+    createTime?: string
   }
 
   type RagRetrievalVO = {

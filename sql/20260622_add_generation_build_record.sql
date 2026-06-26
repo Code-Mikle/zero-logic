@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS generation_build_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    taskId bigint NOT NULL COMMENT '生成任务 ID',
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NOT NULL COMMENT '用户 ID',
+    attemptNo int NOT NULL DEFAULT 1 COMMENT '构建轮次',
+    codeGenType varchar(64) NOT NULL COMMENT '代码生成类型',
+    status varchar(32) NOT NULL COMMENT 'running/success/failed/timeout',
+    command varchar(1024) NULL COMMENT '执行命令',
+    exitCode int NULL COMMENT '进程退出码',
+    logText mediumtext NULL COMMENT '构建日志',
+    durationMs bigint NOT NULL DEFAULT 0 COMMENT '构建耗时（毫秒）',
+    timedOut tinyint NOT NULL DEFAULT 0 COMMENT '是否超时',
+    projectPath varchar(1024) NOT NULL COMMENT '项目目录',
+    artifactPath varchar(1024) NULL COMMENT '构建产物目录',
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_task_attempt (taskId, attemptNo),
+    INDEX idx_taskId (taskId),
+    INDEX idx_appId (appId)
+);

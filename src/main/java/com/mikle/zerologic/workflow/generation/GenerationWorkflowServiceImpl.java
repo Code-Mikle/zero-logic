@@ -4,6 +4,10 @@ import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.service.GenerationAppLockService;
 import com.mikle.zerologic.workflow.generation.node.CodeGenerateNode;
+import com.mikle.zerologic.workflow.generation.node.BuildCheckNode;
+import com.mikle.zerologic.workflow.generation.node.ErrorAnalyzeNode;
+import com.mikle.zerologic.workflow.generation.node.AutoRepairNode;
+import com.mikle.zerologic.config.RepairProperties;
 import com.mikle.zerologic.workflow.generation.node.PrepareContextNode;
 import com.mikle.zerologic.workflow.generation.node.PromptAssembleNode;
 import com.mikle.zerologic.workflow.generation.node.RagRetrieveNode;
@@ -23,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.bsc.langgraph4j.StateGraph.END;
 import static org.bsc.langgraph4j.StateGraph.START;
+import static org.bsc.langgraph4j.action.AsyncEdgeAction.edge_async;
 
 @Slf4j
 @Service
@@ -40,12 +45,25 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
     @Resource
     private PromptAssembleNode promptAssembleNode;
 
+    @Resource
+    private BuildCheckNode buildCheckNode;
+
+    @Resource
+    private ErrorAnalyzeNode errorAnalyzeNode;
+
+    @Resource
+    private AutoRepairNode autoRepairNode;
+
+    @Resource
+    private RepairProperties repairProperties;
+
     @Override
     public Flux<String> streamGenerate(GenerationWorkflowRequest request) {
         GenerationWorkflowContext initialContext = GenerationWorkflowContext.fromRequest(request);
         AtomicReference<Flux<String>> codeStreamRef = new AtomicReference<>();
+        AtomicReference<GenerationWorkflowContext> contextRef = new AtomicReference<>(initialContext);
 
-        CompiledGraph<MessagesState<String>> workflow = createWorkflow(codeStreamRef);
+        CompiledGraph<MessagesState<String>> workflow = createPreGenerationWorkflow(codeStreamRef);
 
         try {
             if (log.isDebugEnabled()) {
@@ -62,6 +80,7 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
                         GenerationWorkflowContext.getContext(step.state());
 
                 if (currentContext != null) {
+                    contextRef.set(currentContext);
                     log.info("生成工作流第 {} 步完成: appId={}, currentStep={}",
                             stepCounter,
                             currentContext.getAppId(),
@@ -81,10 +100,20 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "生成工作流未返回代码流");
         }
 
-        return codeStream;
+        return codeStream.concatWith(Flux.defer(() -> {
+            GenerationWorkflowContext context = contextRef.get();
+            runPostGenerationWorkflow(context);
+            if (context.getBuildResult() == null
+                    || !Boolean.TRUE.equals(context.getBuildResult().getSuccess())) {
+                return Flux.error(new BusinessException(
+                        ErrorCode.OPERATION_ERROR, "项目构建失败，请查看任务构建日志"));
+            }
+            return Flux.empty();
+        }));
     }
 
-    private CompiledGraph<MessagesState<String>> createWorkflow(AtomicReference<Flux<String>> codeStreamRef) {
+    private CompiledGraph<MessagesState<String>> createPreGenerationWorkflow(
+            AtomicReference<Flux<String>> codeStreamRef) {
         try {
             return new MessagesStateGraph<String>()
                     .addNode("prepare_context", prepareContextNode.create())
@@ -100,5 +129,75 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
         } catch (GraphStateException e) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "生成工作流创建失败");
         }
+    }
+
+    private void runPostGenerationWorkflow(GenerationWorkflowContext context) {
+        try {
+            CompiledGraph<MessagesState<String>> workflow = createPostGenerationWorkflow();
+            for (NodeOutput<MessagesState<String>> step : workflow.stream(
+                    Map.of(GenerationWorkflowContext.CONTEXT_KEY, context))) {
+                GenerationWorkflowContext currentContext = GenerationWorkflowContext.getContext(step.state());
+                if (currentContext != null) {
+                    context.setCurrentStep(currentContext.getCurrentStep());
+                    context.setGeneratedProjectDir(currentContext.getGeneratedProjectDir());
+                    context.setBuildResult(currentContext.getBuildResult());
+                    context.setBuildDiagnosis(currentContext.getBuildDiagnosis());
+                    context.setRepairAttempt(currentContext.getRepairAttempt());
+                    context.setRepairResult(currentContext.getRepairResult());
+                }
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("生成后置工作流执行失败，taskId={}", context.getTaskId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                    "生成后置工作流执行失败：" + e.getMessage());
+        }
+    }
+
+    private CompiledGraph<MessagesState<String>> createPostGenerationWorkflow() {
+        try {
+            return new MessagesStateGraph<String>()
+                    .addNode("build_check", buildCheckNode.create())
+                    .addNode("error_analyze", errorAnalyzeNode.create())
+                    .addNode("auto_repair", autoRepairNode.create())
+                    .addEdge(START, "build_check")
+                    .addConditionalEdges("build_check", edge_async(this::routeAfterBuild), Map.of(
+                            "success", END,
+                            "repair", "error_analyze",
+                            "failed", END))
+                    .addEdge("error_analyze", "auto_repair")
+                    .addConditionalEdges("auto_repair", edge_async(this::routeAfterRepair), Map.of(
+                            "rebuild", "build_check",
+                            "failed", END))
+                    .compile();
+        } catch (GraphStateException e) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "生成后置工作流创建失败");
+        }
+    }
+
+    private String routeAfterBuild(MessagesState<String> state) {
+        GenerationWorkflowContext context = GenerationWorkflowContext.getContext(state);
+        if (context != null && context.getBuildResult() != null
+                && Boolean.TRUE.equals(context.getBuildResult().getSuccess())) {
+            return "success";
+        }
+        int attempts = context == null || context.getRepairAttempt() == null ? 0 : context.getRepairAttempt();
+        if (context != null && repairProperties.isEnabled()
+                && attempts < repairProperties.getMaxAttempts()
+                && context.getCodeGenType() == com.mikle.zerologic.model.enums.CodeGenTypeEnum.VUE_PROJECT
+                && context.getBuildResult() != null
+                && !Boolean.TRUE.equals(context.getBuildResult().getTimedOut())
+                && context.getBuildResult().getCommand() != null
+                && context.getBuildResult().getCommand().contains(" run build")) {
+            return "repair";
+        }
+        return "failed";
+    }
+
+    private String routeAfterRepair(MessagesState<String> state) {
+        GenerationWorkflowContext context = GenerationWorkflowContext.getContext(state);
+        return context != null && context.getRepairResult() != null
+                && context.getRepairResult().isSuccess() ? "rebuild" : "failed";
     }
 }

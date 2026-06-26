@@ -74,6 +74,13 @@
                   <a-spin size="small" />
                   <span>AI 正在思考...</span>
                 </div>
+                <a-alert
+                  v-if="message.generationError"
+                  class="generation-error"
+                  type="error"
+                  show-icon
+                  :message="message.generationError"
+                />
                 <div v-if="message.taskId && !message.loading" class="message-meta-actions">
                   <a-button type="link" size="small" @click="openTaskDetail(message.taskId)">
                     查看任务详情
@@ -316,6 +323,7 @@ interface Message {
   createTime?: string
   taskId?: number | string
   ragRetrieval?: API.RagRetrievalVO
+  generationError?: string
 }
 
 const messages = ref<Message[]>([])
@@ -742,7 +750,10 @@ const generateCode = async (
 
         // 显示具体的错误信息
         const errorMessage = errorData.message || '生成过程中出现错误'
-        messages.value[aiMessageIndex].content = `❌ ${errorMessage}`
+        if (!messages.value[aiMessageIndex].content) {
+          messages.value[aiMessageIndex].content = '生成流程未能完成。'
+        }
+        messages.value[aiMessageIndex].generationError = errorMessage
         messages.value[aiMessageIndex].loading = false
         message.error(errorMessage)
 
@@ -1087,6 +1098,10 @@ onUnmounted(() => {
 .message-meta-actions {
   margin-top: 6px;
   text-align: right;
+}
+
+.generation-error {
+  margin-top: 10px;
 }
 
 .message-meta-actions :deep(.ant-btn) {

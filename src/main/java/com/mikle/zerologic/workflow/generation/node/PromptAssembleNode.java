@@ -3,7 +3,9 @@ package com.mikle.zerologic.workflow.generation.node;
 import cn.hutool.core.util.StrUtil;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
+import com.mikle.zerologic.service.GenerationTaskProgressService;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowContext;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
@@ -17,6 +19,9 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 @Component
 @Slf4j
 public class PromptAssembleNode {
+
+    @Resource
+    private GenerationTaskProgressService taskProgressService;
 
     public AsyncNodeAction<MessagesState<String>> create() {
         return node_async(state -> {
@@ -47,6 +52,7 @@ public class PromptAssembleNode {
             }
 
             context.setCurrentStep("prompt_assemble");
+            taskProgressService.updateStep(context.getTaskId(), "prompt_assemble");
             return GenerationWorkflowContext.saveContext(context);
         });
     }

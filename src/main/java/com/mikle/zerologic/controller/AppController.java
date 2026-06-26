@@ -26,6 +26,7 @@ import com.mikle.zerologic.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -48,6 +49,7 @@ import static com.mikle.zerologic.constant.PromptLimitConstant.*;
  */
 @RestController
 @RequestMapping("/app")
+@Slf4j
 public class AppController {
 
     @Resource
@@ -62,12 +64,18 @@ public class AppController {
     @Resource
     private PromptAttachmentService promptAttachmentService;
 
+    /**
+     * 旧版兼容接口。
+     * 新生成主流程请使用 /generation/task/create + /generation/task/{taskId}/stream，
+     * 该接口不创建 generation_task，只保留给历史调用和手工调试。
+     */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
                                                        @RequestParam(required = false) Long attachmentId,
                                                        HttpServletRequest request) {
+        log.warn("Legacy generation endpoint called: /app/chat/gen/code, appId={}", appId);
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");

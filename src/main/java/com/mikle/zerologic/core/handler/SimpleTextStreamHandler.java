@@ -53,9 +53,11 @@ public class SimpleTextStreamHandler {
                             taskId);
                 })
                 .doOnError(error -> {
-                    // 如果AI回复失败，也要记录错误消息
-                    String errorMessage = "AI回复失败: " + error.getMessage();
-                    chatHistoryService.addChatMessage(appId, errorMessage,
+                    String collectedResponse = aiResponseBuilder.toString();
+                    String historyMessage = collectedResponse.isBlank()
+                            ? "AI回复失败: " + error.getMessage()
+                            : collectedResponse;
+                    chatHistoryService.addChatMessage(appId, historyMessage,
                             ChatHistoryMessageTypeEnum.AI.getValue(),
                             loginUser.getId(),
                             null,

@@ -3,16 +3,15 @@ package com.mikle.zerologic.ai.tools;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
-import com.mikle.zerologic.constant.AppConstant;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 
@@ -23,6 +22,12 @@ import java.util.Set;
 @Slf4j
 @Component
 public class FileDirReadTool extends BaseTool {
+
+    @Resource
+    private ProjectToolPathResolver pathResolver;
+
+    @Resource
+    private ToolAuditService toolAuditService;
 
     /**
      * 需要忽略的文件和目录
@@ -45,13 +50,15 @@ public class FileDirReadTool extends BaseTool {
             String relativeDirPath,
             @ToolMemoryId Long appId
     ) {
+        JSONObject arguments = new JSONObject()
+                .set("relativeDirPath", relativeDirPath);
+        return toolAuditService.audit(this, appId, arguments,
+                () -> doReadDir(relativeDirPath, appId));
+    }
+
+    private String doReadDir(String relativeDirPath, Long appId) {
         try {
-            Path path = Paths.get(relativeDirPath == null ? "" : relativeDirPath);
-            if (!path.isAbsolute()) {
-                String projectDirName = "vue_project_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeDirPath == null ? "" : relativeDirPath);
-            }
+            Path path = pathResolver.resolve(appId, relativeDirPath);
             File targetDir = path.toFile();
             if (!targetDir.exists() || !targetDir.isDirectory()) {
                 return "错误：目录不存在或不是目录 - " + relativeDirPath;
@@ -73,7 +80,7 @@ public class FileDirReadTool extends BaseTool {
                     .forEach(file -> {
                         int depth = getRelativeDepth(targetDir, file);
                         String indent = "  ".repeat(depth);
-                        structure.append(indent).append(file.getName());
+                        structure.append(indent).append(file.getName()).append('\n');
                     });
             return structure.toString();
         } catch (Exception e) {
@@ -123,4 +130,4 @@ public class FileDirReadTool extends BaseTool {
         }
         return String.format("[工具调用] %s %s", getDisplayName(), relativeDirPath);
     }
-} 
+}

@@ -1,4 +1,4 @@
-CREATE TABLE knowledge_document (
+CREATE TABLE IF NOT EXISTS knowledge_document (
         id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
         appId bigint NOT NULL COMMENT '应用 ID',
         userId bigint NOT NULL COMMENT '用户 ID',
@@ -17,7 +17,7 @@ CREATE TABLE knowledge_document (
         INDEX idx_contentHash (contentHash)
 );
 
-CREATE TABLE knowledge_chunk (
+CREATE TABLE IF NOT EXISTS knowledge_chunk (
      id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
      documentId bigint NOT NULL COMMENT '文档 ID',
      appId bigint NOT NULL COMMENT '应用 ID',
@@ -35,7 +35,7 @@ CREATE TABLE knowledge_chunk (
      INDEX idx_userId (userId)
 );
 
-CREATE TABLE knowledge_embedding (
+CREATE TABLE IF NOT EXISTS knowledge_embedding (
      id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
      chunkId bigint NOT NULL COMMENT 'chunk ID',
      appId bigint NOT NULL COMMENT '应用 ID',
@@ -51,7 +51,7 @@ CREATE TABLE knowledge_embedding (
      INDEX idx_userId (userId)
 );
 
-CREATE TABLE rag_retrieval_log (
+CREATE TABLE IF NOT EXISTS rag_retrieval_log (
        id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
        taskId bigint NULL COMMENT '任务 ID',
        appId bigint NOT NULL COMMENT '应用 ID',

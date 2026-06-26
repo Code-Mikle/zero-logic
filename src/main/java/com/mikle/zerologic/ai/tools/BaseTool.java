@@ -1,6 +1,8 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.model.enums.ToolCategoryEnum;
+import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 
 /**
  * 工具基类
@@ -22,6 +24,33 @@ public abstract class BaseTool {
      */
     public abstract String getDisplayName();
 
+    public ToolCategoryEnum getCategory() {
+        return ToolCategoryEnum.FILE;
+    }
+
+    public ToolRiskLevelEnum getRiskLevel() {
+        return ToolRiskLevelEnum.LOW;
+    }
+
+    public boolean isMutating() {
+        return false;
+    }
+
+    public boolean isEnabled() {
+        return true;
+    }
+
+    public ToolDefinition getDefinition() {
+        return ToolDefinition.builder()
+                .toolName(getToolName())
+                .displayName(getDisplayName())
+                .category(getCategory())
+                .riskLevel(getRiskLevel())
+                .mutating(isMutating())
+                .enabled(isEnabled())
+                .build();
+    }
+
     /**
      * 生成工具请求时的返回值（显示给用户）
      *
@@ -38,4 +67,4 @@ public abstract class BaseTool {
      * @return 格式化的工具执行结果
      */
     public abstract String generateToolExecutedResult(JSONObject arguments);
-} 
+}

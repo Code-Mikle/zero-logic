@@ -1,6 +1,9 @@
 package com.mikle.zerologic.workflow.generation;
 
 import com.mikle.zerologic.model.enums.CodeGenTypeEnum;
+import com.mikle.zerologic.core.build.model.BuildResult;
+import com.mikle.zerologic.core.build.model.BuildDiagnosis;
+import com.mikle.zerologic.core.repair.model.CodeRepairResult;
 import com.mikle.zerologic.rag.model.RagRetrievedChunk;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -48,6 +51,18 @@ public class GenerationWorkflowContext implements Serializable {
 
     private String assembledMessage;
 
+    private String generatedProjectDir;
+
+    private Integer buildAttempt;
+
+    private BuildResult buildResult;
+
+    private BuildDiagnosis buildDiagnosis;
+
+    private Integer repairAttempt;
+
+    private CodeRepairResult repairResult;
+
     public static GenerationWorkflowContext fromRequest(GenerationWorkflowRequest request) {
         return GenerationWorkflowContext.builder()
                 .taskId(request.taskId())
@@ -58,6 +73,8 @@ public class GenerationWorkflowContext implements Serializable {
                 .codeGenType(request.codeGenType())
                 .attachmentId(request.attachmentId())
                 .currentStep("init")
+                .buildAttempt(1)
+                .repairAttempt(0)
                 .originalMessage(request.displayMessage())
                 .assembledMessage(request.message())
                 .build();

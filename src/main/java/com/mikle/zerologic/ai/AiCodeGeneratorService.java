@@ -54,4 +54,7 @@ public interface AiCodeGeneratorService {
      */
     @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
     TokenStream generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
+
+    @SystemMessage(fromResource = "prompt/repair-vue-project-system-prompt.txt")
+    TokenStream repairVueProject(@MemoryId long appId, @UserMessage String repairRequest);
 }

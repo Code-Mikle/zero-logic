@@ -1,7 +1,10 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.model.enums.ToolCategoryEnum;
 import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.agent.tool.ToolMemoryId;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +14,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class ExitTool extends BaseTool {
+
+    @Resource
+    private ToolAuditService toolAuditService;
 
     @Override
     public String getToolName() {
@@ -29,9 +35,18 @@ public class ExitTool extends BaseTool {
      * @return 退出确认信息
      */
     @Tool("当任务已完成或无需继续调用工具时，使用此工具退出操作，防止循环")
-    public String exit() {
+    public String exit(@ToolMemoryId Long appId) {
+        return toolAuditService.audit(this, appId, new JSONObject(), this::doExit);
+    }
+
+    private String doExit() {
         log.info("AI 请求退出工具调用");
         return "不要继续调用工具，可以输出最终结果了";
+    }
+
+    @Override
+    public ToolCategoryEnum getCategory() {
+        return ToolCategoryEnum.CONTROL;
     }
 
     @Override

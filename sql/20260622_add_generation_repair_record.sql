@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS generation_repair_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    taskId bigint NOT NULL COMMENT 'Generation task ID',
+    appId bigint NOT NULL COMMENT 'Application ID',
+    userId bigint NOT NULL COMMENT 'User ID',
+    repairAttempt int NOT NULL COMMENT 'Repair attempt number',
+    sourceBuildRecordId bigint NOT NULL COMMENT 'Failed build record ID',
+    status varchar(32) NOT NULL COMMENT 'running/success/failed/timeout',
+    errorSummary text NULL COMMENT 'Normalized build error summary',
+    suspectedFiles text NULL COMMENT 'Suspected file list as JSON',
+    changedFiles text NULL COMMENT 'Changed file list as JSON',
+    aiResponse text NULL COMMENT 'Repair agent response',
+    errorMessage varchar(2048) NULL COMMENT 'Repair execution error',
+    durationMs bigint NOT NULL DEFAULT 0,
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_task_repair_attempt (taskId, repairAttempt),
+    INDEX idx_taskId (taskId),
+    INDEX idx_appId (appId)
+);

@@ -18,7 +18,8 @@ import java.util.List;
 public interface AppService extends IService<App> {
 
     /**
-     * 通过对话生成应用代码
+     * 通过对话生成应用代码。
+     * 该方法服务于旧版 /app/chat/gen/code 兼容接口；新主流程使用 GenerationTaskService。
      *
      * @param appId     应用 ID
      * @param message   提示词

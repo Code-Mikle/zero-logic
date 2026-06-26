@@ -10,6 +10,7 @@ import com.mikle.zerologic.mapper.GenerationTaskMapper;
 import com.mikle.zerologic.model.dto.generationtask.GenerationTaskCreateRequest;
 import com.mikle.zerologic.model.entity.App;
 import com.mikle.zerologic.model.entity.GenerationTask;
+import com.mikle.zerologic.model.entity.GenerationBuildRecord;
 import com.mikle.zerologic.model.entity.PromptAttachment;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.enums.ChatHistoryMessageTypeEnum;
@@ -17,6 +18,7 @@ import com.mikle.zerologic.model.enums.CodeGenTypeEnum;
 import com.mikle.zerologic.model.enums.GenerationTaskStatusEnum;
 import com.mikle.zerologic.model.enums.GenerationTaskTypeEnum;
 import com.mikle.zerologic.model.vo.GenerationTaskVO;
+import com.mikle.zerologic.model.vo.GenerationBuildRecordVO;
 import com.mikle.zerologic.model.vo.RagRetrievalVO;
 import com.mikle.zerologic.service.*;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowRequest;
@@ -63,6 +65,15 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
     @Resource
     private RagRetrievalLogQueryService ragRetrievalLogService;
+
+    @Resource
+    private GenerationBuildRecordService generationBuildRecordService;
+
+    @Resource
+    private GenerationRepairRecordService generationRepairRecordService;
+
+    @Resource
+    private ToolCallRecordService toolCallRecordService;
 
     @Override
     public Long createGenerateTask(GenerationTaskCreateRequest request, User loginUser) {
@@ -138,6 +149,10 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
     @Override
     public Flux<String> streamGenerateTask(Long taskId, User loginUser) {
+        return Flux.defer(() -> streamGenerateTaskNow(taskId, loginUser));
+    }
+
+    private Flux<String> streamGenerateTaskNow(Long taskId, User loginUser) {
 
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         GenerationTask task = this.getById(taskId);
@@ -297,6 +312,33 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
         BeanUtil.copyProperties(task, vo);
         RagRetrievalVO ragRetrievalVO = ragRetrievalLogService.getByTaskId(task.getId(), task.getAppId(), task.getUserId());
         vo.setRagRetrieval(ragRetrievalVO);
+        GenerationBuildRecord buildRecord = generationBuildRecordService.getLatestByTaskId(task.getId());
+        if (buildRecord != null) {
+            GenerationBuildRecordVO buildVO = new GenerationBuildRecordVO();
+            BeanUtil.copyProperties(buildRecord, buildVO);
+            buildVO.setArtifactPath(toRelativeArtifactPath(buildRecord.getArtifactPath()));
+            vo.setLatestBuild(buildVO);
+        }
+        vo.setRepairs(generationRepairRecordService.listByTaskId(task.getId()));
+        vo.setToolCalls(toolCallRecordService.listByTaskId(task.getId()));
+        vo.setToolCallCount(vo.getToolCalls().size());
         return vo;
+    }
+
+    private String toRelativeArtifactPath(String artifactPath) {
+        if (StrUtil.isBlank(artifactPath)) {
+            return null;
+        }
+        try {
+            java.nio.file.Path root = java.nio.file.Path.of(
+                    com.mikle.zerologic.constant.AppConstant.CODE_OUTPUT_ROOT_DIR)
+                    .toAbsolutePath().normalize();
+            java.nio.file.Path artifact = java.nio.file.Path.of(artifactPath)
+                    .toAbsolutePath().normalize();
+            return artifact.startsWith(root) ? root.relativize(artifact).toString() : null;
+        } catch (RuntimeException e) {
+            log.warn("构建产物路径转换失败，artifactPath={}", StrUtil.subPre(artifactPath, 128));
+            return null;
+        }
     }
 }

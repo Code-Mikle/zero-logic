@@ -53,21 +53,25 @@ public class GenerationTaskController {
             HttpServletRequest httpServletRequest) {
         User loginUser = userService.getLoginUser(httpServletRequest);
         Flux<String> contentFlux = generationTaskService.streamGenerateTask(taskId, loginUser);
-        GenerationTaskVO taskVO = generationTaskService.getTaskVO(taskId, loginUser);
-
-        Flux<ServerSentEvent<String>> ragReferenceFlux = taskVO.getRagRetrieval() == null
-                ? Flux.empty()
-                : Flux.just(ServerSentEvent.<String>builder()
-                        .event("rag-references")
-                        .data(JSONUtil.toJsonStr(taskVO.getRagRetrieval()))
-                        .build());
-        Flux<ServerSentEvent<String>> tokenFlux = contentFlux
-                .map(chunk -> ServerSentEvent.<String>builder()
-                        .data(JSONUtil.toJsonStr(Map.of("d", chunk)))
-                        .build());
+        Flux<ServerSentEvent<String>> tokenFlux = contentFlux.switchOnFirst((signal, stream) -> {
+            Flux<ServerSentEvent<String>> tokens = stream.map(chunk -> ServerSentEvent.<String>builder()
+                    .data(JSONUtil.toJsonStr(Map.of("d", chunk)))
+                    .build());
+            if (!signal.hasValue()) {
+                return tokens;
+            }
+            GenerationTaskVO taskVO = generationTaskService.getTaskVO(taskId, loginUser);
+            if (taskVO.getRagRetrieval() == null) {
+                return tokens;
+            }
+            ServerSentEvent<String> ragReferences = ServerSentEvent.<String>builder()
+                    .event("rag-references")
+                    .data(JSONUtil.toJsonStr(taskVO.getRagRetrieval()))
+                    .build();
+            return Flux.concat(Flux.just(ragReferences), tokens);
+        });
 
         return Flux.concat(
-                ragReferenceFlux,
                 tokenFlux,
                 Mono.just(ServerSentEvent.<String>builder()
                         .event("done")

@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,8 +34,16 @@ public class ToolManager {
     @PostConstruct
     public void initTools() {
         for (BaseTool tool : tools) {
+            if (toolMap.containsKey(tool.getToolName())) {
+                throw new IllegalStateException("重复的工具名称: " + tool.getToolName());
+            }
             toolMap.put(tool.getToolName(), tool);
-            log.info("注册工具: {} -> {}", tool.getToolName(), tool.getDisplayName());
+            log.info("注册工具: {} -> {}, category={}, risk={}, mutating={}",
+                    tool.getToolName(),
+                    tool.getDisplayName(),
+                    tool.getCategory().getValue(),
+                    tool.getRiskLevel().getValue(),
+                    tool.isMutating());
         }
         log.info("工具管理器初始化完成，共注册 {} 个工具", toolMap.size());
     }
@@ -57,5 +66,11 @@ public class ToolManager {
      */
     public BaseTool[] getAllTools() {
         return tools;
+    }
+
+    public List<ToolDefinition> getToolDefinitions() {
+        return toolMap.values().stream()
+                .map(BaseTool::getDefinition)
+                .toList();
     }
 }

@@ -1,4 +1,4 @@
-CREATE TABLE generation_task (
+CREATE TABLE IF NOT EXISTS generation_task (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     appId bigint NOT NULL COMMENT '应用 ID',
     userId bigint NOT NULL COMMENT '用户 ID',
