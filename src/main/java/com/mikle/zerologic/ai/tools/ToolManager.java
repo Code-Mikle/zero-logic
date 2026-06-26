@@ -38,11 +38,12 @@ public class ToolManager {
                 throw new IllegalStateException("重复的工具名称: " + tool.getToolName());
             }
             toolMap.put(tool.getToolName(), tool);
-            log.info("注册工具: {} -> {}, category={}, risk={}, mutating={}",
+            log.info("注册工具: {} -> {}, category={}, risk={}, operation={}, mutating={}",
                     tool.getToolName(),
                     tool.getDisplayName(),
                     tool.getCategory().getValue(),
                     tool.getRiskLevel().getValue(),
+                    tool.getOperation().getValue(),
                     tool.isMutating());
         }
         log.info("工具管理器初始化完成，共注册 {} 个工具", toolMap.size());

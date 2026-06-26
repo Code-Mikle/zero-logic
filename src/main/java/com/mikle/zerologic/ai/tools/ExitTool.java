@@ -1,6 +1,7 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.ai.tools.policy.ToolOperationEnum;
 import com.mikle.zerologic.model.enums.ToolCategoryEnum;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
@@ -47,6 +48,11 @@ public class ExitTool extends BaseTool {
     @Override
     public ToolCategoryEnum getCategory() {
         return ToolCategoryEnum.CONTROL;
+    }
+
+    @Override
+    public ToolOperationEnum getOperation() {
+        return ToolOperationEnum.CONTROL;
     }
 
     @Override

@@ -27,6 +27,9 @@
           </template>
           下载代码
         </a-button>
+        <a-button type="default" @click="openVersionDrawer" :disabled="!isOwner">
+          版本
+        </a-button>
         <a-button type="primary" @click="deployApp" :loading="deploying">
           <template #icon>
             <CloudUploadOutlined />
@@ -254,6 +257,11 @@
       v-model:open="taskDrawerVisible"
       :task-id="selectedTaskId"
     />
+    <ProjectVersionDrawer
+      v-model:open="versionDrawerVisible"
+      :app-id="appId"
+      @deployed="handleVersionDeployed"
+    />
   </div>
 </template>
 
@@ -292,6 +300,7 @@ import { createGenerationTask } from '@/api/generationTaskController'
 import AttachmentCard from '@/components/AttachmentCard.vue'
 import RagReferenceList from '@/components/RagReferenceList.vue'
 import GenerationTaskDrawer from '@/components/GenerationTaskDrawer.vue'
+import ProjectVersionDrawer from '@/components/ProjectVersionDrawer.vue'
 
 const route = useRoute()
 
@@ -332,6 +341,7 @@ const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
 const taskDrawerVisible = ref(false)
 const selectedTaskId = ref<number | string>()
+const versionDrawerVisible = ref(false)
 
 // 对话历史相关
 const loadingHistory = ref(false)
@@ -803,6 +813,10 @@ const openTaskDetail = (taskId: number | string) => {
   taskDrawerVisible.value = true
 }
 
+const openVersionDrawer = () => {
+  versionDrawerVisible.value = true
+}
+
 // 更新预览
 const updatePreview = () => {
   if (appId.value) {
@@ -884,6 +898,12 @@ const deployApp = async () => {
   } finally {
     deploying.value = false
   }
+}
+
+const handleVersionDeployed = async (url: string) => {
+  deployUrl.value = url
+  deployModalVisible.value = true
+  await fetchAppInfo()
 }
 
 // 在新窗口打开预览

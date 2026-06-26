@@ -12,7 +12,6 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.mikle.zerologic.ai.AiCodeGenTypeRoutingService;
 import com.mikle.zerologic.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.mikle.zerologic.constant.AppConstant;
-import com.mikle.zerologic.core.builder.VueProjectBuilder;
 import com.mikle.zerologic.core.handler.StreamHandlerExecutor;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
@@ -21,11 +20,16 @@ import com.mikle.zerologic.mapper.AppMapper;
 import com.mikle.zerologic.model.dto.app.AppAddRequest;
 import com.mikle.zerologic.model.dto.app.AppQueryRequest;
 import com.mikle.zerologic.model.entity.App;
+import com.mikle.zerologic.model.entity.DeployRecord;
+import com.mikle.zerologic.model.entity.ProjectVersion;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.enums.ChatHistoryMessageTypeEnum;
 import com.mikle.zerologic.model.enums.CodeGenTypeEnum;
+import com.mikle.zerologic.model.enums.DeployTypeEnum;
 import com.mikle.zerologic.model.vo.AppVO;
+import com.mikle.zerologic.model.vo.DeployRecordVO;
 import com.mikle.zerologic.model.vo.PromptAttachmentVO;
+import com.mikle.zerologic.model.vo.ProjectVersionVO;
 import com.mikle.zerologic.model.vo.UserVO;
 import com.mikle.zerologic.monitor.MonitorContext;
 import com.mikle.zerologic.monitor.MonitorContextHolder;
@@ -69,7 +73,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private StreamHandlerExecutor streamHandlerExecutor;
 
     @Resource
-    private VueProjectBuilder vueProjectBuilder;
+    private ProjectVersionService projectVersionService;
+
+    @Resource
+    private DeployRecordService deployRecordService;
 
     @Resource
     private ScreenshotService screenshotService;
@@ -188,61 +195,103 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Override
     public String deployApp(Long appId, User loginUser) {
+        App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
+        ProjectVersion latestVersion = projectVersionService.getLatestDeployableVersion(appId, loginUser.getId());
+        ThrowUtils.throwIf(latestVersion == null, ErrorCode.NOT_FOUND_ERROR,
+                "未找到可部署版本，请先完成一次生成");
+        return deployVersionInternal(app, latestVersion, loginUser, DeployTypeEnum.DEPLOY.getValue());
+    }
+
+    @Override
+    public String deployVersion(Long appId, Long versionId, User loginUser) {
+        App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
+        ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
+        ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
+                "版本不存在、无权访问或不可部署");
+        return deployVersionInternal(app, version, loginUser, DeployTypeEnum.DEPLOY.getValue());
+    }
+
+    @Override
+    public String rollbackVersion(Long appId, Long versionId, User loginUser) {
+        App app = getOwnedApp(appId, loginUser, "无权限回滚该应用");
+        ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
+        ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
+                "版本不存在、无权访问或不可回滚");
+        return deployVersionInternal(app, version, loginUser, DeployTypeEnum.ROLLBACK.getValue());
+    }
+
+    @Override
+    public List<ProjectVersionVO> listAppVersions(Long appId, User loginUser) {
+        getOwnedApp(appId, loginUser, "无权限查看该应用版本");
+        return projectVersionService.listByAppId(appId, loginUser.getId());
+    }
+
+    @Override
+    public List<DeployRecordVO> listDeployRecords(Long appId, User loginUser) {
+        getOwnedApp(appId, loginUser, "无权限查看该应用部署记录");
+        return deployRecordService.listByAppId(appId, loginUser.getId());
+    }
+
+    private String deployVersionInternal(App app, ProjectVersion version, User loginUser, String deployType) {
+        Long appId = app.getId();
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
-        // 2. 查询应用信息
-        App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
-        // 3. 权限校验，仅本人可以部署自己的应用
-        if (!app.getUserId().equals(loginUser.getId())) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限部署该应用");
-        }
-        // 4. 检查是否已有 deployKey
+        // 2. 检查是否已有 deployKey
         String deployKey = app.getDeployKey();
         // 如果没有，则生成 6 位 deployKey（字母 + 数字）
         if (StrUtil.isBlank(deployKey)) {
             deployKey = RandomUtil.randomString(6);
         }
-        // 5. 获取代码生成类型，获取原始代码生成路径（应用访问目录）
-        String codeGenType = app.getCodeGenType();
-        String sourceDirName = codeGenType + "_" + appId;
-        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
-        // 6. 检查路径是否存在
-        File sourceDir = new File(sourceDirPath);
+        // 3. 部署固定版本产物，而不是重新构建当前工作目录。
+        File sourceDir = new File(version.getArtifactPath());
         if (!sourceDir.exists() || !sourceDir.isDirectory()) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码路径不存在，请先生成应用");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "版本产物不存在，请重新生成应用");
         }
-        // 7. Vue 项目特殊处理：执行构建
-        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
-        if (codeGenTypeEnum == CodeGenTypeEnum.VUE_PROJECT) {
-            // Vue 项目需要构建
-            boolean buildSuccess = vueProjectBuilder.buildProject(sourceDirPath);
-            ThrowUtils.throwIf(!buildSuccess, ErrorCode.SYSTEM_ERROR, "Vue 项目构建失败，请重试");
-            // 检查 dist 目录是否存在
-            File distDir = new File(sourceDirPath, "dist");
-            ThrowUtils.throwIf(!distDir.exists(), ErrorCode.SYSTEM_ERROR, "Vue 项目构建完成但未生成 dist 目录");
-            // 构建完成后，需要将构建后的文件复制到部署目录
-            sourceDir = distDir;
-        }
-        // 8. 复制文件到部署目录
+        // 4. 复制版本产物到部署目录
         String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        DeployRecord deployRecord = deployRecordService.createRunning(
+                appId,
+                loginUser.getId(),
+                version.getId(),
+                deployKey,
+                deployDirPath,
+                deployType
+        );
+        String appDeployUrl = String.format("%s/%s/", deployHost, deployKey);
         try {
-            FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
+            File deployDir = new File(deployDirPath);
+            FileUtil.del(deployDir);
+            FileUtil.mkdir(deployDir);
+            FileUtil.copyContent(sourceDir, deployDir, true);
+            // 7. 更新数据库
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setDeployKey(deployKey);
+            updateApp.setDeployedTime(LocalDateTime.now());
+            boolean updateResult = this.updateById(updateApp);
+            ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
+            projectVersionService.markDeployed(version.getId());
+            deployRecordService.finishSuccess(deployRecord.getId(), appDeployUrl);
         } catch (Exception e) {
+            deployRecordService.finishFailed(deployRecord.getId(), e.getMessage());
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败：" + e.getMessage());
         }
-        // 9. 更新数据库
-        App updateApp = new App();
-        updateApp.setId(appId);
-        updateApp.setDeployKey(deployKey);
-        updateApp.setDeployedTime(LocalDateTime.now());
-        boolean updateResult = this.updateById(updateApp);
-        ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        // 10. 构建应用访问 URL
-        String appDeployUrl = String.format("%s/%s/", deployHost, deployKey);        // 11. 异步生成截图并且更新应用封面
+        // 8. 构建应用访问 URL
+        // 9. 异步生成截图并且更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
+    }
+
+    private App getOwnedApp(Long appId, User loginUser, String noAuthMessage) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!Objects.equals(app.getUserId(), loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, noAuthMessage);
+        }
+        return app;
     }
 
     /**

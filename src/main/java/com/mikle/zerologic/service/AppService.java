@@ -7,6 +7,8 @@ import com.mikle.zerologic.model.dto.app.AppQueryRequest;
 import com.mikle.zerologic.model.entity.App;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.vo.AppVO;
+import com.mikle.zerologic.model.vo.DeployRecordVO;
+import com.mikle.zerologic.model.vo.ProjectVersionVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -45,6 +47,14 @@ public interface AppService extends IService<App> {
      * @return 可访问的部署地址
      */
     String deployApp(Long appId, User loginUser);
+
+    String deployVersion(Long appId, Long versionId, User loginUser);
+
+    String rollbackVersion(Long appId, Long versionId, User loginUser);
+
+    List<ProjectVersionVO> listAppVersions(Long appId, User loginUser);
+
+    List<DeployRecordVO> listDeployRecords(Long appId, User loginUser);
 
     /**
      * 异步生成应用截图并更新封面

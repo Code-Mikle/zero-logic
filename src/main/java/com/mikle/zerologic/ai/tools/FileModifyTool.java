@@ -1,6 +1,7 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.ai.tools.policy.ToolOperationEnum;
 import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
@@ -79,6 +80,11 @@ public class FileModifyTool extends BaseTool {
     @Override
     public boolean isMutating() {
         return true;
+    }
+
+    @Override
+    public ToolOperationEnum getOperation() {
+        return ToolOperationEnum.MODIFY;
     }
 
     @Override

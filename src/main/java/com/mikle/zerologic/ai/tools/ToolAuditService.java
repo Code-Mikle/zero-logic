@@ -3,6 +3,9 @@ package com.mikle.zerologic.ai.tools;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.ai.tools.policy.ToolPolicyRequest;
+import com.mikle.zerologic.ai.tools.policy.ToolPolicyResult;
+import com.mikle.zerologic.ai.tools.policy.ToolPolicyService;
 import com.mikle.zerologic.model.entity.ToolCallRecord;
 import com.mikle.zerologic.model.enums.ToolCallStatusEnum;
 import com.mikle.zerologic.service.ToolCallRecordService;
@@ -27,6 +30,9 @@ public class ToolAuditService {
     @Resource
     private ToolCallRecordService toolCallRecordService;
 
+    @Resource
+    private ToolPolicyService toolPolicyService;
+
     public String audit(BaseTool tool, Long appId, JSONObject arguments, Supplier<String> action) {
         long startTime = System.currentTimeMillis();
         ToolExecutionContext context = ToolExecutionContextHolder.get(appId);
@@ -34,6 +40,13 @@ public class ToolAuditService {
         String status = ToolCallStatusEnum.SUCCESS.getValue();
         String errorMessage = null;
         try {
+            ToolPolicyResult policyResult = toolPolicyService.check(buildPolicyRequest(tool, appId, context, arguments));
+            if (!policyResult.isAllowed()) {
+                status = ToolCallStatusEnum.REJECTED.getValue();
+                errorMessage = policyResult.getReason();
+                result = "工具调用被安全策略拒绝：" + policyResult.getReason();
+                return result;
+            }
             result = action.get();
             status = inferStatus(result);
             return result;
@@ -45,6 +58,20 @@ public class ToolAuditService {
             long durationMs = System.currentTimeMillis() - startTime;
             saveRecord(tool, appId, context, arguments, result, status, errorMessage, durationMs);
         }
+    }
+
+    private ToolPolicyRequest buildPolicyRequest(BaseTool tool, Long appId,
+                                                 ToolExecutionContext context, JSONObject arguments) {
+        return ToolPolicyRequest.builder()
+                .toolName(tool.getToolName())
+                .operation(tool.getOperation())
+                .riskLevel(tool.getRiskLevel())
+                .appId(resolveAppId(appId, context))
+                .taskId(context == null ? null : context.getTaskId())
+                .userId(context == null ? null : context.getUserId())
+                .callSource(context == null ? null : context.getCallSource())
+                .arguments(arguments)
+                .build();
     }
 
     private void saveRecord(BaseTool tool, Long appId, ToolExecutionContext context, JSONObject arguments,

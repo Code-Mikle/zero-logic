@@ -1,6 +1,8 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.ai.tools.policy.ToolPolicyResult;
+import com.mikle.zerologic.ai.tools.policy.ToolPolicyService;
 import com.mikle.zerologic.model.entity.ToolCallRecord;
 import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 import com.mikle.zerologic.service.ToolCallRecordService;
@@ -23,6 +25,9 @@ class ToolAuditServiceTest {
     @Mock
     private ToolCallRecordService toolCallRecordService;
 
+    @Mock
+    private ToolPolicyService toolPolicyService;
+
     @AfterEach
     void tearDown() {
         ToolExecutionContextHolder.clear(42L);
@@ -32,6 +37,7 @@ class ToolAuditServiceTest {
     void recordsSuccessfulToolCallWithContext() {
         ToolAuditService auditService = createAuditService();
         when(toolCallRecordService.save(any(ToolCallRecord.class))).thenReturn(true);
+        when(toolPolicyService.check(any())).thenReturn(ToolPolicyResult.allow());
         ToolExecutionContextHolder.set(ToolExecutionContext.builder()
                 .taskId(12L)
                 .appId(42L)
@@ -60,18 +66,22 @@ class ToolAuditServiceTest {
     void marksRejectedResult() {
         ToolAuditService auditService = createAuditService();
         when(toolCallRecordService.save(any(ToolCallRecord.class))).thenReturn(true);
+        when(toolPolicyService.check(any())).thenReturn(ToolPolicyResult.reject("受保护路径不允许执行该工具操作"));
 
-        auditService.audit(new TestTool(), 42L, new JSONObject(),
-                () -> "错误：不允许删除重要文件 - package.json");
+        String result = auditService.audit(new TestTool(), 42L, new JSONObject(),
+                () -> "不会执行");
 
+        assertEquals("工具调用被安全策略拒绝：受保护路径不允许执行该工具操作", result);
         ArgumentCaptor<ToolCallRecord> captor = ArgumentCaptor.forClass(ToolCallRecord.class);
         verify(toolCallRecordService).save(captor.capture());
         assertEquals("rejected", captor.getValue().getStatus());
+        assertEquals("受保护路径不允许执行该工具操作", captor.getValue().getErrorMessage());
     }
 
     private ToolAuditService createAuditService() {
         ToolAuditService auditService = new ToolAuditService();
         ReflectionTestUtils.setField(auditService, "toolCallRecordService", toolCallRecordService);
+        ReflectionTestUtils.setField(auditService, "toolPolicyService", toolPolicyService);
         return auditService;
     }
 

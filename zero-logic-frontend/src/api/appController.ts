@@ -110,6 +110,58 @@ export async function deployApp(body: API.AppDeployRequest, options?: { [key: st
   })
 }
 
+export async function deployVersion(
+  body: API.AppVersionDeployRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseString>('/app/deploy-version', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+export async function rollbackVersion(
+  body: API.AppVersionDeployRequest,
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseString>('/app/rollback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    data: body,
+    ...(options || {}),
+  })
+}
+
+export async function listAppVersions(
+  params: API.listAppVersionsParams,
+  options?: { [key: string]: any }
+) {
+  const { appId, ...queryParams } = params
+  return request<API.BaseResponseListProjectVersionVO>(`/app/${appId}/versions`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
+export async function listDeployRecords(
+  params: API.listDeployRecordsParams,
+  options?: { [key: string]: any }
+) {
+  const { appId, ...queryParams } = params
+  return request<API.BaseResponseListDeployRecordVO>(`/app/${appId}/deploy-records`, {
+    method: 'GET',
+    params: { ...queryParams },
+    ...(options || {}),
+  })
+}
+
 /** 此处后端没有提供注释 GET /app/download/${param0} */
 export async function downloadAppCode(
   // 叠加生成的Param类型 (非body参数swagger默认没有生成对象)

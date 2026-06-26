@@ -18,6 +18,8 @@ import com.mikle.zerologic.model.dto.app.*;
 import com.mikle.zerologic.model.entity.PromptAttachment;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.vo.AppVO;
+import com.mikle.zerologic.model.vo.DeployRecordVO;
+import com.mikle.zerologic.model.vo.ProjectVersionVO;
 import com.mikle.zerologic.ratelimter.annotation.RateLimit;
 import com.mikle.zerologic.ratelimter.enums.RateLimitType;
 import com.mikle.zerologic.service.ProjectDownloadService;
@@ -147,6 +149,58 @@ public class AppController {
         String deployUrl = appService.deployApp(appId, loginUser);
         // 返回部署 URL
         return ResultUtils.success(deployUrl);
+    }
+
+    /**
+     * 部署指定版本
+     */
+    @PostMapping("/deploy-version")
+    public BaseResponse<String> deployVersion(@RequestBody AppVersionDeployRequest deployRequest,
+                                              HttpServletRequest request) {
+        ThrowUtils.throwIf(deployRequest == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(deployRequest.getAppId() == null || deployRequest.getAppId() <= 0,
+                ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(deployRequest.getVersionId() == null || deployRequest.getVersionId() <= 0,
+                ErrorCode.PARAMS_ERROR, "版本 ID 不能为空");
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appService.deployVersion(
+                deployRequest.getAppId(), deployRequest.getVersionId(), loginUser));
+    }
+
+    /**
+     * 回滚到指定版本
+     */
+    @PostMapping("/rollback")
+    public BaseResponse<String> rollbackVersion(@RequestBody AppVersionDeployRequest rollbackRequest,
+                                                HttpServletRequest request) {
+        ThrowUtils.throwIf(rollbackRequest == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(rollbackRequest.getAppId() == null || rollbackRequest.getAppId() <= 0,
+                ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(rollbackRequest.getVersionId() == null || rollbackRequest.getVersionId() <= 0,
+                ErrorCode.PARAMS_ERROR, "版本 ID 不能为空");
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appService.rollbackVersion(
+                rollbackRequest.getAppId(), rollbackRequest.getVersionId(), loginUser));
+    }
+
+    /**
+     * 查询应用版本列表
+     */
+    @GetMapping("/{appId}/versions")
+    public BaseResponse<List<ProjectVersionVO>> listAppVersions(@PathVariable Long appId,
+                                                                HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appService.listAppVersions(appId, loginUser));
+    }
+
+    /**
+     * 查询应用部署记录
+     */
+    @GetMapping("/{appId}/deploy-records")
+    public BaseResponse<List<DeployRecordVO>> listDeployRecords(@PathVariable Long appId,
+                                                                HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(appService.listDeployRecords(appId, loginUser));
     }
 
     /**

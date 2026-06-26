@@ -15,6 +15,11 @@ declare namespace API {
     appId?: number
   }
 
+  type AppVersionDeployRequest = {
+    appId?: number | string
+    versionId?: number | string
+  }
+
   type AppQueryRequest = {
     pageNum?: number
     pageSize?: number
@@ -72,6 +77,18 @@ declare namespace API {
   type BaseResponseLong = {
     code?: number
     data?: number
+    message?: string
+  }
+
+  type BaseResponseListProjectVersionVO = {
+    code?: number
+    data?: ProjectVersionVO[]
+    message?: string
+  }
+
+  type BaseResponseListDeployRecordVO = {
+    code?: number
+    data?: DeployRecordVO[]
     message?: string
   }
 
@@ -171,6 +188,14 @@ declare namespace API {
     appId: number
     pageSize?: number
     lastCreateTime?: string
+  }
+
+  type listAppVersionsParams = {
+    appId: number | string
+  }
+
+  type listDeployRecordsParams = {
+    appId: number | string
   }
 
   type LoginUserVO = {
@@ -359,6 +384,30 @@ declare namespace API {
     resultSummary?: string
     errorMessage?: string
     durationMs?: number
+    createTime?: string
+  }
+
+  type ProjectVersionVO = {
+    id?: number | string
+    appId?: number | string
+    taskId?: number | string
+    versionNo?: number
+    versionName?: string
+    codeGenType?: string
+    status?: string
+    buildRecordId?: number | string
+    createTime?: string
+  }
+
+  type DeployRecordVO = {
+    id?: number | string
+    appId?: number | string
+    versionId?: number | string
+    deployKey?: string
+    deployUrl?: string
+    deployType?: string
+    status?: string
+    errorMessage?: string
     createTime?: string
   }
 

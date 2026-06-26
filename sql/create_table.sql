@@ -256,3 +256,48 @@ CREATE TABLE IF NOT EXISTS tool_call_record (
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
 );
+
+CREATE TABLE IF NOT EXISTS project_version (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NOT NULL COMMENT '用户 ID',
+    taskId bigint NULL COMMENT '关联生成任务 ID',
+    versionNo int NOT NULL COMMENT '应用内版本号',
+    versionName varchar(64) NOT NULL COMMENT '版本名称',
+    codeGenType varchar(64) NOT NULL COMMENT '代码生成类型',
+    sourcePath varchar(1024) NOT NULL COMMENT '源码快照目录',
+    artifactPath varchar(1024) NOT NULL COMMENT '可部署产物目录',
+    buildRecordId bigint NULL COMMENT '关联构建记录 ID',
+    status varchar(32) NOT NULL COMMENT 'created/built/failed/deployed',
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_app_version_no (appId, versionNo),
+    INDEX idx_appId (appId),
+    INDEX idx_userId (userId),
+    INDEX idx_taskId (taskId),
+    INDEX idx_status (status),
+    INDEX idx_createTime (createTime)
+);
+
+CREATE TABLE IF NOT EXISTS deploy_record (
+    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NOT NULL COMMENT '用户 ID',
+    versionId bigint NOT NULL COMMENT '项目版本 ID',
+    deployKey varchar(64) NOT NULL COMMENT '部署标识',
+    deployUrl varchar(1024) NULL COMMENT '部署访问地址',
+    deployPath varchar(1024) NOT NULL COMMENT '部署目录',
+    deployType varchar(32) NOT NULL DEFAULT 'deploy' COMMENT 'deploy/rollback',
+    status varchar(32) NOT NULL COMMENT 'running/success/failed/rolled_back',
+    errorMessage varchar(2048) NULL COMMENT '错误信息',
+    createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    isDelete tinyint NOT NULL DEFAULT 0,
+    INDEX idx_appId (appId),
+    INDEX idx_userId (userId),
+    INDEX idx_versionId (versionId),
+    INDEX idx_deployKey (deployKey),
+    INDEX idx_status (status),
+    INDEX idx_createTime (createTime)
+);

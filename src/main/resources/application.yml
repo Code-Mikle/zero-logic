@@ -16,6 +16,30 @@ spring:
 attachment:
   temporary-ttl-hours: 24
 
+tool:
+  policy:
+    max-write-chars: 300000
+    max-modify-chars: 300000
+    protected-files:
+      - package.json
+      - package-lock.json
+      - pnpm-lock.yaml
+      - yarn.lock
+      - vite.config.js
+      - vite.config.ts
+      - tsconfig.json
+      - tsconfig.app.json
+      - tsconfig.node.json
+      - .env
+      - .env.local
+      - .npmrc
+    protected-dirs:
+      - node_modules
+      - dist
+      - build
+      - .git
+      - target
+
 generation:
   app-permit-lease-minutes: 30
   build:

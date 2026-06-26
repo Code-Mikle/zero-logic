@@ -11,6 +11,7 @@ import com.mikle.zerologic.config.RepairProperties;
 import com.mikle.zerologic.workflow.generation.node.PrepareContextNode;
 import com.mikle.zerologic.workflow.generation.node.PromptAssembleNode;
 import com.mikle.zerologic.workflow.generation.node.RagRetrieveNode;
+import com.mikle.zerologic.workflow.generation.node.VersionArchiveNode;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
@@ -53,6 +54,9 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
 
     @Resource
     private AutoRepairNode autoRepairNode;
+
+    @Resource
+    private VersionArchiveNode versionArchiveNode;
 
     @Resource
     private RepairProperties repairProperties;
@@ -144,6 +148,8 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
                     context.setBuildDiagnosis(currentContext.getBuildDiagnosis());
                     context.setRepairAttempt(currentContext.getRepairAttempt());
                     context.setRepairResult(currentContext.getRepairResult());
+                    context.setVersionId(currentContext.getVersionId());
+                    context.setVersionNo(currentContext.getVersionNo());
                 }
             }
         } catch (BusinessException e) {
@@ -161,11 +167,13 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
                     .addNode("build_check", buildCheckNode.create())
                     .addNode("error_analyze", errorAnalyzeNode.create())
                     .addNode("auto_repair", autoRepairNode.create())
+                    .addNode("version_archive", versionArchiveNode.create())
                     .addEdge(START, "build_check")
                     .addConditionalEdges("build_check", edge_async(this::routeAfterBuild), Map.of(
-                            "success", END,
+                            "success", "version_archive",
                             "repair", "error_analyze",
                             "failed", END))
+                    .addEdge("version_archive", END)
                     .addEdge("error_analyze", "auto_repair")
                     .addConditionalEdges("auto_repair", edge_async(this::routeAfterRepair), Map.of(
                             "rebuild", "build_check",

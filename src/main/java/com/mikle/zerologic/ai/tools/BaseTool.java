@@ -1,6 +1,7 @@
 package com.mikle.zerologic.ai.tools;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.ai.tools.policy.ToolOperationEnum;
 import com.mikle.zerologic.model.enums.ToolCategoryEnum;
 import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 
@@ -36,6 +37,10 @@ public abstract class BaseTool {
         return false;
     }
 
+    public ToolOperationEnum getOperation() {
+        return ToolOperationEnum.READ;
+    }
+
     public boolean isEnabled() {
         return true;
     }
@@ -46,6 +51,7 @@ public abstract class BaseTool {
                 .displayName(getDisplayName())
                 .category(getCategory())
                 .riskLevel(getRiskLevel())
+                .operation(getOperation())
                 .mutating(isMutating())
                 .enabled(isEnabled())
                 .build();

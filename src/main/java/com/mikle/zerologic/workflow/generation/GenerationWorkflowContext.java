@@ -63,6 +63,10 @@ public class GenerationWorkflowContext implements Serializable {
 
     private CodeRepairResult repairResult;
 
+    private Long versionId;
+
+    private Integer versionNo;
+
     public static GenerationWorkflowContext fromRequest(GenerationWorkflowRequest request) {
         return GenerationWorkflowContext.builder()
                 .taskId(request.taskId())

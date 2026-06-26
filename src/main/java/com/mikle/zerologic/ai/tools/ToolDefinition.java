@@ -1,5 +1,6 @@
 package com.mikle.zerologic.ai.tools;
 
+import com.mikle.zerologic.ai.tools.policy.ToolOperationEnum;
 import com.mikle.zerologic.model.enums.ToolCategoryEnum;
 import com.mikle.zerologic.model.enums.ToolRiskLevelEnum;
 import lombok.Builder;
@@ -16,6 +17,8 @@ public class ToolDefinition {
     private ToolCategoryEnum category;
 
     private ToolRiskLevelEnum riskLevel;
+
+    private ToolOperationEnum operation;
 
     private boolean mutating;
 
