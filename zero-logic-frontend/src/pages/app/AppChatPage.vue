@@ -1,42 +1,144 @@
 <template>
   <div id="appChatPage">
-    <!-- 顶部栏 -->
-    <div class="header-bar">
-      <div class="header-left">
-        <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
-        <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
-          {{ formatCodeGenType(appInfo.codeGenType) }}
-        </a-tag>
+    <!-- 顶部工作台栏 -->
+    <div class="workspace-header">
+      <RouterLink to="/" class="workspace-logo">
+        <img class="workspace-logo-img" src="@/assets/ZeroLogic_logo.png" alt="ZeroLogic" />
+        <span>ZeroLogic</span>
+      </RouterLink>
+
+      <div class="workspace-app-bar">
+        <div class="header-left">
+          <h1 class="app-name">{{ appInfo?.appName || '网站生成器' }}</h1>
+          <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
+            {{ formatCodeGenType(appInfo.codeGenType) }}
+          </a-tag>
+        </div>
+        <div class="header-right">
+          <a-tooltip title="查看应用详情" placement="bottom" overlay-class-name="header-action-tooltip">
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="default"
+                aria-label="查看应用详情"
+                @click="showAppDetail"
+              >
+                <template #icon>
+                  <InfoCircleOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+          <a-tooltip title="下载当前应用代码" placement="bottom" overlay-class-name="header-action-tooltip">
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="primary"
+                ghost
+                aria-label="下载当前应用代码"
+                @click="downloadCode"
+                :loading="downloading"
+                :disabled="!isOwner"
+              >
+                <template #icon>
+                  <DownloadOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+          <a-tooltip title="查看和部署历史版本" placement="bottom" overlay-class-name="header-action-tooltip">
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="default"
+                aria-label="查看和部署历史版本"
+                @click="openVersionDrawer"
+                :disabled="!isOwner"
+              >
+                <template #icon>
+                  <HistoryOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+          <a-tooltip
+            v-if="isOwner && previewUrl"
+            :title="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
+            placement="bottom"
+            overlay-class-name="header-action-tooltip"
+          >
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="default"
+                :danger="isEditMode"
+                :aria-label="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
+                @click="toggleEditMode"
+                :class="{ 'edit-mode-active': isEditMode }"
+              >
+                <template #icon>
+                  <EditOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+          <a-tooltip
+            v-if="previewUrl"
+            title="在新窗口打开预览"
+            placement="bottom"
+            overlay-class-name="header-action-tooltip"
+          >
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="default"
+                aria-label="在新窗口打开预览"
+                @click="openInNewTab"
+              >
+                <template #icon>
+                  <ExportOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+          <a-tooltip title="部署当前应用" placement="bottom" overlay-class-name="header-action-tooltip">
+            <span class="header-tooltip-trigger">
+              <a-button
+                class="header-icon-btn"
+                type="primary"
+                aria-label="部署当前应用"
+                @click="deployApp"
+                :loading="deploying"
+              >
+                <template #icon>
+                  <CloudUploadOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
+        </div>
       </div>
-      <div class="header-right">
-        <a-button type="default" @click="showAppDetail">
-          <template #icon>
-            <InfoCircleOutlined />
-          </template>
-          应用详情
-        </a-button>
-        <a-button
-          type="primary"
-          ghost
-          @click="downloadCode"
-          :loading="downloading"
-          :disabled="!isOwner"
-        >
-          <template #icon>
-            <DownloadOutlined />
-          </template>
-          下载代码
-        </a-button>
-        <a-button type="default" @click="openVersionDrawer" :disabled="!isOwner">
-          版本
-        </a-button>
-        <a-button type="primary" @click="deployApp" :loading="deploying">
-          <template #icon>
-            <CloudUploadOutlined />
-          </template>
-          部署
-        </a-button>
-      </div>
+
+      <a-dropdown v-if="loginUserStore.loginUser.id">
+        <a-space class="workspace-user">
+          <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+          {{ loginUserStore.loginUser.userName ?? '无名' }}
+        </a-space>
+        <template #overlay>
+          <a-menu>
+            <a-menu-item @click="router.push('/user/center')">
+              <UserOutlined />
+              个人中心
+            </a-menu-item>
+            <a-menu-divider />
+            <a-menu-item @click="doLogout">
+              <LogoutOutlined />
+              退出登录
+            </a-menu-item>
+          </a-menu>
+        </template>
+      </a-dropdown>
+      <a-button v-else type="primary" @click="router.push('/user/login')">登录</a-button>
     </div>
 
     <!-- 主要内容区域 -->
@@ -193,30 +295,6 @@
       </div>
       <!-- 右侧网页展示区域 -->
       <div class="preview-section">
-        <div class="preview-header">
-          <h3>生成后的网页展示</h3>
-          <div class="preview-actions">
-            <a-button
-              v-if="isOwner && previewUrl"
-              type="link"
-              :danger="isEditMode"
-              @click="toggleEditMode"
-              :class="{ 'edit-mode-active': isEditMode }"
-              style="padding: 0; height: auto; margin-right: 12px"
-            >
-              <template #icon>
-                <EditOutlined />
-              </template>
-              {{ isEditMode ? '退出编辑' : '编辑模式' }}
-            </a-button>
-            <a-button v-if="previewUrl" type="link" @click="openInNewTab">
-              <template #icon>
-                <ExportOutlined />
-              </template>
-              新窗口打开
-            </a-button>
-          </div>
-        </div>
         <div class="preview-content">
           <div v-if="!previewUrl && !isGenerating" class="preview-placeholder">
             <div class="placeholder-icon">🌐</div>
@@ -274,6 +352,7 @@ import {
   deployApp as deployAppApi,
   deleteApp as deleteAppApi,
 } from '@/api/appController'
+import { userLogout } from '@/api/userController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
@@ -293,6 +372,9 @@ import {
   DownloadOutlined,
   EditOutlined,
   UploadOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons-vue'
 import { uploadAttachment } from '@/api/attachmentControllers.ts'
 import { createGenerationTask } from '@/api/generationTaskController'
@@ -384,6 +466,19 @@ const appDetailVisible = ref(false)
 // 显示应用详情
 const showAppDetail = () => {
   appDetailVisible.value = true
+}
+
+const doLogout = async () => {
+  const res = await userLogout()
+  if (res.data.code === 0) {
+    loginUserStore.setLoginUser({
+      userName: '未登录',
+    })
+    message.success('退出登录成功')
+    await router.push('/user/login')
+  } else {
+    message.error('退出登录失败，' + res.data.message)
+  }
 }
 
 // 加载对话历史
@@ -1013,22 +1108,61 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 16px;
   background: #fdfdfd;
+  overflow: hidden;
 }
 
-/* 顶部栏 */
-.header-bar {
-  display: flex;
-  justify-content: space-between;
+/* 顶部工作台栏 */
+.workspace-header {
+  height: 64px;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
   align-items: center;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.workspace-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: #1890ff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.workspace-logo:hover {
+  color: #1677ff;
+}
+
+.workspace-logo-img {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+
+.workspace-app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.workspace-user {
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .code-gen-type-tag {
@@ -1040,25 +1174,66 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-right {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-tooltip-trigger {
+  display: inline-flex;
+}
+
+.header-icon-btn {
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.header-icon-btn :deep(.anticon) {
+  font-size: 16px;
+}
+
+:global(.header-action-tooltip .ant-tooltip-inner) {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+:global(.header-action-tooltip .ant-tooltip-arrow::before) {
+  background: #1f2937;
 }
 
 /* 主要内容区域 */
 .main-content {
   flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
-  padding: 8px;
+  padding: 16px;
   overflow: hidden;
 }
 
 /* 左侧对话区域 */
 .chat-section {
   flex: 2;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: white;
@@ -1069,6 +1244,7 @@ onUnmounted(() => {
 
 .messages-container {
   flex: 1;
+  min-height: 0;
   padding: 16px;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -1183,6 +1359,8 @@ onUnmounted(() => {
 /* 右侧预览区域 */
 .preview-section {
   flex: 3;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: white;
@@ -1191,27 +1369,9 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.preview-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.preview-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .preview-content {
   flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
@@ -1255,20 +1415,47 @@ onUnmounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
+  .workspace-header {
+    grid-template-columns: 180px minmax(0, 1fr) auto;
+    padding: 0 16px;
+  }
+
+  .workspace-app-bar {
+    gap: 12px;
+  }
+
+  .header-right {
+    gap: 8px;
+  }
+
   .main-content {
     flex-direction: column;
   }
 
   .chat-section,
   .preview-section {
-    flex: none;
-    height: 50vh;
+    flex: 1 1 0;
+    height: auto;
   }
 }
 
 @media (max-width: 768px) {
-  .header-bar {
-    padding: 12px 16px;
+  .workspace-header {
+    height: auto;
+    min-height: 64px;
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+    padding: 10px 12px;
+  }
+
+  .workspace-app-bar {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+
+  .workspace-logo-img {
+    width: 36px;
+    height: 36px;
   }
 
   .app-name {

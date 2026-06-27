@@ -6,7 +6,8 @@ import UserManagePage from '@/pages/admin/UserManagePage.vue'
 import AppManagePage from '@/pages/admin/AppManagePage.vue'
 import AppChatPage from '@/pages/app/AppChatPage.vue'
 import AppEditPage from '@/pages/app/AppEditPage.vue'
-import ChatManagePage from "@/pages/admin/ChatManagePage.vue";
+import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
+import UserCenterPage from '@/pages/user/UserCenterPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +33,11 @@ const router = createRouter({
       component: UserManagePage,
     },
     {
+      path: '/user/center',
+      name: '个人中心',
+      component: UserCenterPage,
+    },
+    {
       path: '/admin/appManage',
       name: '应用管理',
       component: AppManagePage,
@@ -45,6 +51,11 @@ const router = createRouter({
       path: '/app/chat/:id',
       name: '应用对话',
       component: AppChatPage,
+      meta: {
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
+        fullPage: true,
+      },
     },
     {
       path: '/app/edit/:id',
