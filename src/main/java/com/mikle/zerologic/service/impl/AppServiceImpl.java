@@ -12,6 +12,7 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.mikle.zerologic.ai.AiCodeGenTypeRoutingService;
 import com.mikle.zerologic.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.mikle.zerologic.constant.AppConstant;
+import com.mikle.zerologic.core.version.ProjectVersionArchiver;
 import com.mikle.zerologic.core.handler.StreamHandlerExecutor;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
@@ -77,6 +78,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private DeployRecordService deployRecordService;
+
+    @Resource
+    private ProjectVersionArchiver projectVersionArchiver;
 
     @Resource
     private ScreenshotService screenshotService;
@@ -217,7 +221,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
         ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
                 "版本不存在、无权访问或不可回滚");
-        return deployVersionInternal(app, version, loginUser, DeployTypeEnum.ROLLBACK.getValue());
+        String appDeployUrl = deployVersionInternal(app, version, loginUser, DeployTypeEnum.ROLLBACK.getValue());
+        truncateVersionsAfterRollback(appId, loginUser.getId(), version.getVersionNo());
+        return appDeployUrl;
     }
 
     @Override
@@ -258,12 +264,14 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 deployDirPath,
                 deployType
         );
-        String appDeployUrl = String.format("%s/%s/", deployHost, deployKey);
+        String appDeployUrl = String.format("%s/%s/?v=%s&t=%s",
+                deployHost, deployKey, version.getVersionNo(), System.currentTimeMillis());
         try {
             File deployDir = new File(deployDirPath);
             FileUtil.del(deployDir);
             FileUtil.mkdir(deployDir);
             FileUtil.copyContent(sourceDir, deployDir, true);
+            syncPreviewDirectory(appId, version, sourceDir);
             // 7. 更新数据库
             App updateApp = new App();
             updateApp.setId(appId);
@@ -271,7 +279,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             updateApp.setDeployedTime(LocalDateTime.now());
             boolean updateResult = this.updateById(updateApp);
             ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-            projectVersionService.markDeployed(version.getId());
+            projectVersionService.markCurrentDeployed(appId, loginUser.getId(), version.getId());
             deployRecordService.finishSuccess(deployRecord.getId(), appDeployUrl);
         } catch (Exception e) {
             deployRecordService.finishFailed(deployRecord.getId(), e.getMessage());
@@ -281,6 +289,36 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 9. 异步生成截图并且更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
+    }
+
+    private void truncateVersionsAfterRollback(Long appId, Long userId, Integer rollbackVersionNo) {
+        List<ProjectVersion> obsoleteVersions = projectVersionService.listAfterVersionNo(appId, userId, rollbackVersionNo);
+        if (obsoleteVersions.isEmpty()) {
+            return;
+        }
+        List<Long> obsoleteVersionIds = obsoleteVersions.stream()
+                .map(ProjectVersion::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        deployRecordService.physicalDeleteByVersionIds(appId, userId, obsoleteVersionIds);
+        int deletedVersionCount = projectVersionService.physicalDeleteAfterVersionNo(appId, userId, rollbackVersionNo);
+        projectVersionArchiver.deleteArchivedVersions(obsoleteVersions);
+        log.info("应用版本回滚后截断完成: appId={}, rollbackVersionNo={}, deletedVersionCount={}",
+                appId, rollbackVersionNo, deletedVersionCount);
+    }
+
+    private void syncPreviewDirectory(Long appId, ProjectVersion version, File sourceDir) {
+        String previewDirName = version.getCodeGenType() + "_" + appId;
+        File previewDir = new File(AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + previewDirName);
+        FileUtil.del(previewDir);
+        FileUtil.mkdir(previewDir);
+        if (CodeGenTypeEnum.VUE_PROJECT.getValue().equals(version.getCodeGenType())) {
+            File distDir = new File(previewDir, "dist");
+            FileUtil.mkdir(distDir);
+            FileUtil.copyContent(sourceDir, distDir, true);
+            return;
+        }
+        FileUtil.copyContent(sourceDir, previewDir, true);
     }
 
     private App getOwnedApp(Long appId, User loginUser, String noAuthMessage) {

@@ -15,5 +15,7 @@ public interface DeployRecordService extends IService<DeployRecord> {
 
     void finishFailed(Long recordId, String errorMessage);
 
+    int physicalDeleteByVersionIds(Long appId, Long userId, List<Long> versionIds);
+
     List<DeployRecordVO> listByAppId(Long appId, Long userId);
 }

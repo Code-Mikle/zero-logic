@@ -153,7 +153,7 @@ const rollbackSelectedVersion = (version: API.ProjectVersionVO) => {
   if (!props.appId || !version.id) return
   Modal.confirm({
     title: '确认回滚版本？',
-    content: `将当前应用回滚部署到 ${version.versionName || `v${version.versionNo}`}。`,
+    content: `将当前应用回滚到 ${version.versionName || `v${version.versionNo}`}，并删除该版本之后的版本记录和产物。该操作不可恢复。`,
     okText: '确认回滚',
     cancelText: '取消',
     onOk: async () => {
@@ -173,7 +173,12 @@ const rollbackSelectedVersion = (version: API.ProjectVersionVO) => {
   })
 }
 
-const openDeployUrl = (url: string) => window.open(url, '_blank')
+const withCacheBust = (url: string) => {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}_t=${Date.now()}`
+}
+
+const openDeployUrl = (url: string) => window.open(withCacheBust(url), '_blank')
 const formatTime = (value?: string) => (value ? new Date(value).toLocaleString('zh-CN') : '-')
 const versionStatusText = (status?: string) => ({ built: '可部署', deployed: '已部署', created: '已创建', failed: '失败' })[status || ''] || status || '-'
 const versionStatusColor = (status?: string) => ({ built: 'blue', deployed: 'green', created: 'default', failed: 'red' })[status || ''] || 'default'

@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -64,5 +65,28 @@ class ProjectVersionArchiverTest {
         assertTrue(Files.isRegularFile(versionDir.resolve("artifact/index.html")));
         assertFalse(Files.exists(versionDir.resolve("source/node_modules")));
         assertFalse(Files.exists(versionDir.resolve("source/dist")));
+    }
+
+    @Test
+    void deleteArchivedVersionsRemovesVersionDirectory() throws Exception {
+        Path versionDir = tempDir.resolve("versions").resolve("app_42").resolve("v2");
+        Files.createDirectories(versionDir.resolve("artifact"));
+        Files.writeString(versionDir.resolve("artifact/index.html"), "<html></html>");
+
+        ProjectVersionPathResolver resolver = new ProjectVersionPathResolver() {
+            @Override
+            public Path resolveVersionDir(Long appId, Integer versionNo) {
+                return tempDir.resolve("versions").resolve("app_" + appId).resolve("v" + versionNo);
+            }
+        };
+        ProjectVersionArchiver archiver = new ProjectVersionArchiver();
+        ReflectionTestUtils.setField(archiver, "pathResolver", resolver);
+
+        archiver.deleteArchivedVersions(List.of(ProjectVersion.builder()
+                .appId(42L)
+                .versionNo(2)
+                .build()));
+
+        assertFalse(Files.exists(versionDir));
     }
 }

@@ -58,6 +58,14 @@ public class DeployRecordServiceImpl
     }
 
     @Override
+    public int physicalDeleteByVersionIds(Long appId, Long userId, List<Long> versionIds) {
+        if (appId == null || userId == null || versionIds == null || versionIds.isEmpty()) {
+            return 0;
+        }
+        return mapper.physicalDeleteByVersionIds(appId, userId, versionIds);
+    }
+
+    @Override
     public List<DeployRecordVO> listByAppId(Long appId, Long userId) {
         if (appId == null || userId == null) {
             return List.of();

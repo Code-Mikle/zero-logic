@@ -68,6 +68,26 @@ public class ProjectVersionServiceImpl
     }
 
     @Override
+    public List<ProjectVersion> listAfterVersionNo(Long appId, Long userId, Integer versionNo) {
+        if (appId == null || userId == null || versionNo == null) {
+            return List.of();
+        }
+        return list(QueryWrapper.create()
+                .eq("appId", appId)
+                .eq("userId", userId)
+                .gt("versionNo", versionNo)
+                .orderBy("versionNo", true));
+    }
+
+    @Override
+    public int physicalDeleteAfterVersionNo(Long appId, Long userId, Integer versionNo) {
+        if (appId == null || userId == null || versionNo == null) {
+            return 0;
+        }
+        return mapper.physicalDeleteAfterVersionNo(appId, userId, versionNo);
+    }
+
+    @Override
     public List<ProjectVersionVO> listByAppId(Long appId, Long userId) {
         if (appId == null || userId == null) {
             return List.of();
@@ -82,10 +102,18 @@ public class ProjectVersionServiceImpl
     }
 
     @Override
-    public void markDeployed(Long versionId) {
-        if (versionId == null) {
+    public void markCurrentDeployed(Long appId, Long userId, Long versionId) {
+        if (appId == null || userId == null || versionId == null) {
             return;
         }
+        ProjectVersion reset = ProjectVersion.builder()
+                .status(ProjectVersionStatusEnum.BUILT.getValue())
+                .build();
+        update(reset, QueryWrapper.create()
+                .eq("appId", appId)
+                .eq("userId", userId)
+                .eq("status", ProjectVersionStatusEnum.DEPLOYED.getValue())
+                .ne("id", versionId));
         ProjectVersion update = ProjectVersion.builder()
                 .id(versionId)
                 .status(ProjectVersionStatusEnum.DEPLOYED.getValue())

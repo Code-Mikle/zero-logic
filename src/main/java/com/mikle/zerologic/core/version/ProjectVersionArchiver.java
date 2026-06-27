@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Set;
 
@@ -63,6 +64,24 @@ public class ProjectVersionArchiver {
         log.info("项目版本归档完成，appId={}, taskId={}, versionId={}, versionNo={}",
                 appId, taskId, version.getId(), version.getVersionNo());
         return version;
+    }
+
+    public void deleteArchivedVersions(Collection<ProjectVersion> versions) {
+        if (versions == null || versions.isEmpty()) {
+            return;
+        }
+        for (ProjectVersion version : versions) {
+            if (version.getAppId() == null || version.getVersionNo() == null) {
+                continue;
+            }
+            Path versionDir = pathResolver.resolveVersionDir(version.getAppId(), version.getVersionNo());
+            try {
+                deleteDirectoryIfExists(versionDir);
+            } catch (IOException e) {
+                log.warn("删除项目归档版本失败: appId={}, versionNo={}, path={}",
+                        version.getAppId(), version.getVersionNo(), versionDir, e);
+            }
+        }
     }
 
     private Integer nextVersionNo(Long appId) {
@@ -115,6 +134,17 @@ public class ProjectVersionArchiver {
                     Files.createDirectories(dest.getParent());
                     Files.copy(path, dest, StandardCopyOption.REPLACE_EXISTING);
                 }
+            }
+        }
+    }
+
+    private void deleteDirectoryIfExists(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
             }
         }
     }

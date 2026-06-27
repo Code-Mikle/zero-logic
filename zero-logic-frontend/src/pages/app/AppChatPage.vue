@@ -154,6 +154,28 @@
               @keydown.enter.prevent="sendMessage"
               :disabled="isGenerating"
             />
+            <div class="upload-actions">
+              <a-upload
+                v-model:file-list="fileList"
+                :max-count="1"
+                :show-upload-list="true"
+                :before-upload="beforeUpload"
+                :disabled="uploading || isGenerating || !isOwner"
+                @remove="handleRemoveAttachment()"
+              >
+                <a-button
+                  type="text"
+                  size="small"
+                  :loading="uploading"
+                  :disabled="isGenerating || !isOwner"
+                >
+                  <template #icon>
+                    <UploadOutlined />
+                  </template>
+                  {{ fileList.length ? '更换文件' : '上传文件' }}
+                </a-button>
+              </a-upload>
+            </div>
             <div class="input-actions">
               <a-button
                 type="primary"
@@ -166,29 +188,6 @@
                 </template>
               </a-button>
             </div>
-          </div>
-
-          <div class="upload-actions">
-            <a-upload
-              v-model:file-list="fileList"
-              :max-count="1"
-              :show-upload-list="true"
-              :before-upload="beforeUpload"
-              :disabled="uploading || isGenerating || !isOwner"
-              @remove="handleRemoveAttachment()"
-            >
-              <a-button
-                type="text"
-                size="small"
-                :loading="uploading"
-                :disabled="isGenerating || !isOwner"
-              >
-                <template #icon>
-                  <UploadOutlined />
-                </template>
-                {{ fileList.length ? '更换文件' : '上传文件' }}
-              </a-button>
-            </a-upload>
           </div>
         </div>
       </div>
@@ -817,12 +816,17 @@ const openVersionDrawer = () => {
   versionDrawerVisible.value = true
 }
 
+const withCacheBust = (url: string) => {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}_t=${Date.now()}`
+}
+
 // 更新预览
 const updatePreview = () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
     const newPreviewUrl = getStaticPreviewUrl(codeGenType, appId.value)
-    previewUrl.value = newPreviewUrl
+    previewUrl.value = withCacheBust(newPreviewUrl)
     previewReady.value = true
   }
 }
@@ -889,6 +893,8 @@ const deployApp = async () => {
       deployUrl.value = res.data.data
       deployModalVisible.value = true
       message.success('部署成功')
+      await fetchAppInfo()
+      updatePreview()
     } else {
       message.error('部署失败：' + res.data.message)
     }
@@ -904,6 +910,7 @@ const handleVersionDeployed = async (url: string) => {
   deployUrl.value = url
   deployModalVisible.value = true
   await fetchAppInfo()
+  updatePreview()
 }
 
 // 在新窗口打开预览
@@ -916,7 +923,7 @@ const openInNewTab = () => {
 // 打开部署的网站
 const openDeployedSite = () => {
   if (deployUrl.value) {
-    window.open(deployUrl.value, '_blank')
+    window.open(withCacheBust(deployUrl.value), '_blank')
   }
 }
 
@@ -1061,7 +1068,7 @@ onUnmounted(() => {
 }
 
 .messages-container {
-  flex: 0.9;
+  flex: 1;
   padding: 16px;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -1148,14 +1155,29 @@ onUnmounted(() => {
   position: relative;
 }
 
-.input-wrapper .ant-input {
-  padding-right: 50px;
+.input-wrapper :deep(.ant-input) {
+  padding: 12px 56px 48px 12px;
+  resize: none;
+}
+
+.upload-actions {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+}
+
+.upload-actions :deep(.ant-upload-list) {
+  position: absolute;
+  left: 0;
+  bottom: 32px;
+  width: 260px;
 }
 
 .input-actions {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  bottom: 12px;
+  right: 12px;
 }
 
 /* 右侧预览区域 */

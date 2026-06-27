@@ -15,7 +15,11 @@ public interface ProjectVersionService extends IService<ProjectVersion> {
 
     ProjectVersion getDeployableVersion(Long appId, Long userId, Long versionId);
 
+    List<ProjectVersion> listAfterVersionNo(Long appId, Long userId, Integer versionNo);
+
+    int physicalDeleteAfterVersionNo(Long appId, Long userId, Integer versionNo);
+
     List<ProjectVersionVO> listByAppId(Long appId, Long userId);
 
-    void markDeployed(Long versionId);
+    void markCurrentDeployed(Long appId, Long userId, Long versionId);
 }
