@@ -15,96 +15,97 @@
           </a-tag>
         </div>
         <div class="header-right">
-          <a-tooltip title="查看应用详情" placement="bottom" overlay-class-name="header-action-tooltip">
-            <span class="header-tooltip-trigger">
-              <a-button
-                class="header-icon-btn"
-                type="default"
-                aria-label="查看应用详情"
-                @click="showAppDetail"
-              >
-                <template #icon>
-                  <InfoCircleOutlined />
-                </template>
-              </a-button>
-            </span>
-          </a-tooltip>
-          <a-tooltip title="下载当前应用代码" placement="bottom" overlay-class-name="header-action-tooltip">
-            <span class="header-tooltip-trigger">
-              <a-button
-                class="header-icon-btn"
-                type="primary"
-                ghost
-                aria-label="下载当前应用代码"
-                @click="downloadCode"
-                :loading="downloading"
-                :disabled="!isOwner"
-              >
-                <template #icon>
-                  <DownloadOutlined />
-                </template>
-              </a-button>
-            </span>
-          </a-tooltip>
-          <a-tooltip title="查看和部署历史版本" placement="bottom" overlay-class-name="header-action-tooltip">
-            <span class="header-tooltip-trigger">
-              <a-button
-                class="header-icon-btn"
-                type="default"
-                aria-label="查看和部署历史版本"
-                @click="openVersionDrawer"
-                :disabled="!isOwner"
-              >
-                <template #icon>
-                  <HistoryOutlined />
-                </template>
-              </a-button>
-            </span>
-          </a-tooltip>
-          <a-tooltip
-            v-if="isOwner && previewUrl"
-            :title="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
-            placement="bottom"
-            overlay-class-name="header-action-tooltip"
-          >
-            <span class="header-tooltip-trigger">
-              <a-button
-                class="header-icon-btn"
-                type="default"
-                :danger="isEditMode"
-                :aria-label="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
-                @click="toggleEditMode"
-                :class="{ 'edit-mode-active': isEditMode }"
-              >
-                <template #icon>
-                  <EditOutlined />
-                </template>
-              </a-button>
-            </span>
-          </a-tooltip>
-          <a-tooltip
-            v-if="previewUrl"
-            title="在新窗口打开预览"
-            placement="bottom"
-            overlay-class-name="header-action-tooltip"
-          >
-            <span class="header-tooltip-trigger">
-              <a-button
-                class="header-icon-btn"
-                type="default"
-                aria-label="在新窗口打开预览"
-                @click="openInNewTab"
-              >
-                <template #icon>
-                  <ExportOutlined />
-                </template>
-              </a-button>
-            </span>
-          </a-tooltip>
+          <div class="toolbar-group">
+            <a-tooltip title="查看应用详情" placement="bottom" overlay-class-name="header-action-tooltip">
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  aria-label="查看应用详情"
+                  @click="showAppDetail"
+                >
+                  <template #icon>
+                    <InfoCircleOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
+            <a-tooltip title="下载当前应用代码" placement="bottom" overlay-class-name="header-action-tooltip">
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  aria-label="下载当前应用代码"
+                  @click="downloadCode"
+                  :loading="downloading"
+                  :disabled="!isOwner"
+                >
+                  <template #icon>
+                    <DownloadOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
+            <a-tooltip title="查看和部署历史版本" placement="bottom" overlay-class-name="header-action-tooltip">
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  aria-label="查看和部署历史版本"
+                  @click="openVersionDrawer"
+                  :disabled="!isOwner"
+                >
+                  <template #icon>
+                    <HistoryOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
+            <a-tooltip
+              v-if="isOwner && previewUrl"
+              :title="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
+              placement="bottom"
+              overlay-class-name="header-action-tooltip"
+            >
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  :danger="isEditMode"
+                  :aria-label="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
+                  @click="toggleEditMode"
+                  :class="{ 'edit-mode-active': isEditMode }"
+                >
+                  <template #icon>
+                    <EditOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
+            <a-tooltip
+              v-if="previewUrl"
+              title="在新窗口打开预览"
+              placement="bottom"
+              overlay-class-name="header-action-tooltip"
+            >
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  aria-label="在新窗口打开预览"
+                  @click="openInNewTab"
+                >
+                  <template #icon>
+                    <ExportOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
+          </div>
           <a-tooltip title="部署当前应用" placement="bottom" overlay-class-name="header-action-tooltip">
             <span class="header-tooltip-trigger">
               <a-button
-                class="header-icon-btn"
+                class="header-icon-btn deploy-icon-btn"
                 type="primary"
                 aria-label="部署当前应用"
                 @click="deployApp"
@@ -1114,34 +1115,46 @@ onUnmounted(() => {
 
 /* 顶部工作台栏 */
 .workspace-header {
-  height: 64px;
+  height: 68px;
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) auto;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  padding: 0 24px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px 0 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset, 0 10px 30px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(16px);
 }
 
 .workspace-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  color: #1890ff;
-  font-size: 18px;
+  width: fit-content;
+  padding: 7px 9px;
+  border-radius: 14px;
+  color: #1677ff;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: 0;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .workspace-logo:hover {
   color: #1677ff;
+  background: rgba(22, 119, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .workspace-logo-img {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
 }
 
@@ -1154,26 +1167,59 @@ onUnmounted(() => {
 }
 
 .workspace-user {
+  min-height: 40px;
+  padding: 4px 10px 4px 5px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.9);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   cursor: pointer;
   white-space: nowrap;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.workspace-user:hover {
+  background: #fff;
+  border-color: rgba(22, 119, 255, 0.24);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.72);
 }
 
 .code-gen-type-tag {
+  height: 24px;
+  margin-inline-end: 0;
+  padding: 0 9px;
+  border-radius: 999px;
   font-size: 12px;
+  line-height: 22px;
+  color: #1668dc;
+  background: rgba(22, 119, 255, 0.08);
+  border-color: rgba(22, 119, 255, 0.22);
+  flex-shrink: 0;
 }
 
 .app-name {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1182,8 +1228,19 @@ onUnmounted(() => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.88);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .header-tooltip-trigger {
@@ -1191,13 +1248,49 @@ onUnmounted(() => {
 }
 
 .header-icon-btn {
-  width: 40px;
-  height: 36px;
+  width: 36px;
+  height: 34px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
+  color: #334155;
+  border: none;
+  box-shadow: none;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.header-icon-btn:hover {
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.header-icon-btn:disabled {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.deploy-icon-btn {
+  width: 42px;
+  height: 38px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+  box-shadow: 0 8px 18px rgba(22, 119, 255, 0.24);
+}
+
+.deploy-icon-btn:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #4096ff 0%, #1677ff 100%);
+  box-shadow: 0 10px 22px rgba(22, 119, 255, 0.3);
 }
 
 .header-icon-btn :deep(.anticon) {
@@ -1416,7 +1509,7 @@ onUnmounted(() => {
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .workspace-header {
-    grid-template-columns: 180px minmax(0, 1fr) auto;
+    grid-template-columns: 170px minmax(0, 1fr) auto;
     padding: 0 16px;
   }
 
@@ -1426,6 +1519,10 @@ onUnmounted(() => {
 
   .header-right {
     gap: 8px;
+  }
+
+  .toolbar-group {
+    gap: 1px;
   }
 
   .main-content {
@@ -1451,6 +1548,8 @@ onUnmounted(() => {
   .workspace-app-bar {
     grid-column: 1 / -1;
     order: 3;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .workspace-logo-img {
@@ -1460,6 +1559,26 @@ onUnmounted(() => {
 
   .app-name {
     font-size: 16px;
+  }
+
+  .header-left {
+    max-width: calc(100vw - 160px);
+  }
+
+  .header-right {
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 2px;
+  }
+
+  .header-icon-btn {
+    width: 34px;
+    height: 32px;
+  }
+
+  .deploy-icon-btn {
+    width: 38px;
+    height: 34px;
   }
 
   .main-content {
