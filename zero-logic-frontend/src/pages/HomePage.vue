@@ -5,7 +5,7 @@ import { message, Upload, type UploadFile, type UploadProps } from 'ant-design-v
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage, listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
-import { UploadOutlined } from '@ant-design/icons-vue'
+import { ArrowUpOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
 import { uploadAttachment } from '@/api/attachmentControllers'
 import AppCard from '@/components/AppCard.vue'
 
@@ -252,37 +252,64 @@ onUnmounted(() => {
           :rows="4"
           :maxlength="1000"
           class="prompt-input"
+          @keydown.enter.exact.prevent="createApp"
         />
 
         <div class="upload-actions">
-          <a-upload
-            v-model:file-list="fileList"
-            :max-count="1"
-            name="file"
-            :before-upload="beforeUpload"
-            :disabled="uploading || creating"
-            @remove="handleRemove"
+          <a-tooltip
+            title="支持上传 TXT、Markdown、PDF，单个文件不超过 5 MB"
+            placement="top"
+            overlay-class-name="header-action-tooltip"
           >
-            <a-button
-              type="text"
-              size="small"
-              :loading="uploading"
-              :disabled="uploading || creating"
-            >
-              <template #icon>
-                <UploadOutlined />
-              </template>
-              {{ fileList.length ? '更换文件' : '上传文件' }}
-            </a-button>
-          </a-upload>
+            <span class="composer-tooltip-trigger">
+              <a-upload
+                v-model:file-list="fileList"
+                :max-count="1"
+                name="file"
+                :before-upload="beforeUpload"
+                :disabled="uploading || creating"
+                @remove="handleRemove"
+              >
+                <a-button
+                  class="composer-icon-btn composer-upload-btn"
+                  type="text"
+                  size="small"
+                  aria-label="上传附件"
+                  :loading="uploading"
+                  :disabled="uploading || creating"
+                >
+                  <template #icon>
+                    <PaperClipOutlined />
+                  </template>
+                  {{ fileList.length ? '更换' : '上传' }}
+                </a-button>
+              </a-upload>
+            </span>
+          </a-tooltip>
         </div>
 
         <div class="input-actions">
-          <a-button type="primary" size="large" @click="createApp" :loading="creating">
-            <template #icon>
-              <span>↑</span>
-            </template>
-          </a-button>
+          <a-tooltip
+            title="Enter 发送，Shift + Enter 换行"
+            placement="top"
+            overlay-class-name="header-action-tooltip"
+          >
+            <span class="composer-tooltip-trigger">
+              <a-button
+                class="composer-icon-btn composer-send-btn"
+                :class="{ 'composer-send-active': userPrompt.trim() }"
+                type="primary"
+                size="large"
+                aria-label="发送并创建应用"
+                @click="createApp"
+                :loading="creating"
+              >
+                <template #icon>
+                  <ArrowUpOutlined />
+                </template>
+              </a-button>
+            </span>
+          </a-tooltip>
         </div>
       </div>
 
@@ -385,74 +412,36 @@ onUnmounted(() => {
   padding: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 8%, #e2e8f0 20%, #cbd5e1 100%),
-    radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+    radial-gradient(circle at 50% 0%, rgba(22, 119, 255, 0.1), transparent 34%),
+    radial-gradient(circle at 12% 32%, rgba(20, 184, 166, 0.08), transparent 28%),
+    linear-gradient(180deg, #f8fafc 0%, #f4f7fb 45%, #eef3f8 100%);
   position: relative;
   overflow: hidden;
 }
 
-/* 科技感网格背景 */
+/* 柔和背景光感 */
 #homePage::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image:
-    linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px),
-    linear-gradient(rgba(139, 92, 246, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 92, 246, 0.04) 1px, transparent 1px);
-  background-size:
-    100px 100px,
-    100px 100px,
-    20px 20px,
-    20px 20px;
+  inset: 0;
+  background:
+    radial-gradient(circle at 84% 12%, rgba(22, 119, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 18% 78%, rgba(16, 185, 129, 0.07), transparent 28%);
   pointer-events: none;
-  animation: gridFloat 20s ease-in-out infinite;
 }
 
-/* 动态光效 */
+/* 鼠标轻微光感 */
 #homePage::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background:
     radial-gradient(
       600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      rgba(59, 130, 246, 0.08) 0%,
-      rgba(139, 92, 246, 0.06) 40%,
-      transparent 80%
-    ),
-    linear-gradient(45deg, transparent 30%, rgba(59, 130, 246, 0.04) 50%, transparent 70%),
-    linear-gradient(-45deg, transparent 30%, rgba(139, 92, 246, 0.04) 50%, transparent 70%);
+      rgba(22, 119, 255, 0.05) 0%,
+      transparent 72%
+    );
   pointer-events: none;
-  animation: lightPulse 8s ease-in-out infinite alternate;
-}
-
-@keyframes gridFloat {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(5px, 5px);
-  }
-}
-
-@keyframes lightPulse {
-  0% {
-    opacity: 0.3;
-  }
-  100% {
-    opacity: 0.7;
-  }
 }
 
 .container {
@@ -474,41 +463,6 @@ onUnmounted(() => {
   margin-bottom: 28px;
   color: #1e293b;
   position: relative;
-  overflow: hidden;
-}
-
-.hero-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(ellipse 800px 400px at center, rgba(59, 130, 246, 0.12) 0%, transparent 70%),
-    linear-gradient(45deg, transparent 30%, rgba(139, 92, 246, 0.05) 50%, transparent 70%),
-    linear-gradient(-45deg, transparent 30%, rgba(16, 185, 129, 0.04) 50%, transparent 70%);
-  animation: heroGlow 10s ease-in-out infinite alternate;
-}
-
-@keyframes heroGlow {
-  0% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes rotate {
-  0% {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  100% {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
 }
 
 .hero-title {
@@ -520,20 +474,9 @@ onUnmounted(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -1px;
+  letter-spacing: 0;
   position: relative;
   z-index: 2;
-  animation: titleShimmer 3s ease-in-out infinite;
-}
-
-@keyframes titleShimmer {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
 }
 
 .hero-description {
@@ -554,7 +497,7 @@ onUnmounted(() => {
 
 .prompt-input {
   border-radius: 16px;
-  border: none;
+  border: 1px solid rgba(148, 163, 184, 0.24);
   font-size: 16px;
 
   /* 底部预留上传按钮空间 */
@@ -563,12 +506,13 @@ onUnmounted(() => {
   /* padding: 20px 60px 20px 20px; */
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.1);
 }
 
 .prompt-input:focus {
   background: rgba(255, 255, 255, 1);
-  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+  border-color: rgba(22, 119, 255, 0.42);
+  box-shadow: 0 20px 54px rgba(15, 23, 42, 0.12);
   transform: translateY(-2px);
 }
 
@@ -582,7 +526,7 @@ onUnmounted(() => {
 .upload-actions :deep(.ant-upload-list) {
   position: absolute;
   left: 0;
-  bottom: 32px;
+  bottom: 38px;
   width: 260px;
 }
 
@@ -593,6 +537,101 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.composer-tooltip-trigger {
+  display: inline-flex;
+}
+
+.composer-icon-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.composer-icon-btn :deep(.anticon) {
+  font-size: 16px;
+}
+
+.composer-upload-btn {
+  gap: 5px;
+  min-width: auto;
+  height: 32px;
+  padding: 0 12px;
+  color: #111827;
+  background: #f3f4f6;
+  border: 1px solid transparent;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.composer-upload-btn:hover {
+  color: #111827;
+  background: #e9edf2;
+  border-color: transparent;
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+
+.composer-send-btn {
+  color: #fff;
+  border: none;
+  background: #c4c8cf;
+  box-shadow: none;
+}
+
+.composer-send-active {
+  background: #111827;
+}
+
+.composer-send-btn:hover,
+.composer-send-active:hover {
+  color: #fff;
+  background: #111827;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.composer-upload-btn:disabled,
+.composer-upload-btn:disabled:hover {
+  color: #94a3b8;
+  background: #f3f4f6;
+  box-shadow: none;
+  transform: none;
+}
+
+.composer-send-btn:disabled,
+.composer-send-btn:disabled:hover {
+  color: #fff;
+  background: #c4c8cf;
+  box-shadow: none;
+  transform: none;
+}
+
+:global(.header-action-tooltip .ant-tooltip-inner) {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
+
+:global(.header-action-tooltip .ant-tooltip-arrow::before) {
+  background: #1f2937;
 }
 
 /* 快捷按钮 */
@@ -608,36 +647,26 @@ onUnmounted(() => {
   border-radius: 25px;
   padding: 8px 20px;
   height: auto;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.24);
   color: #475569;
   backdrop-filter: blur(15px);
-  transition: all 0.3s;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
-.quick-actions .ant-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-  transition: left 0.5s;
-}
-
-.quick-actions .ant-btn:hover::before {
-  left: 100%;
-}
-
 .quick-actions .ant-btn:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #3b82f6;
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(22, 119, 255, 0.28);
+  color: #1677ff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 /* 区域标题 */

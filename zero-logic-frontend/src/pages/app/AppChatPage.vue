@@ -244,7 +244,7 @@
                 :placeholder="getInputPlaceholder()"
                 :rows="4"
                 :maxlength="1000"
-                @keydown.enter.prevent="sendMessage"
+                @keydown.enter.exact.prevent="sendMessage"
                 :disabled="isGenerating || !isOwner"
               />
             </a-tooltip>
@@ -254,42 +254,63 @@
               :placeholder="getInputPlaceholder()"
               :rows="4"
               :maxlength="1000"
-              @keydown.enter.prevent="sendMessage"
+              @keydown.enter.exact.prevent="sendMessage"
               :disabled="isGenerating"
             />
             <div class="upload-actions">
-              <a-upload
-                v-model:file-list="fileList"
-                :max-count="1"
-                :show-upload-list="true"
-                :before-upload="beforeUpload"
-                :disabled="uploading || isGenerating || !isOwner"
-                @remove="handleRemoveAttachment()"
+              <a-tooltip
+                title="支持上传 TXT、Markdown、PDF，单个文件不超过 5 MB"
+                placement="top"
+                overlay-class-name="header-action-tooltip"
               >
-                <a-button
-                  type="text"
-                  size="small"
-                  :loading="uploading"
-                  :disabled="isGenerating || !isOwner"
-                >
-                  <template #icon>
-                    <UploadOutlined />
-                  </template>
-                  {{ fileList.length ? '更换文件' : '上传文件' }}
-                </a-button>
-              </a-upload>
+                <span class="composer-tooltip-trigger">
+                  <a-upload
+                    v-model:file-list="fileList"
+                    :max-count="1"
+                    :show-upload-list="true"
+                    :before-upload="beforeUpload"
+                    :disabled="uploading || isGenerating || !isOwner"
+                    @remove="handleRemoveAttachment()"
+                  >
+                    <a-button
+                      class="composer-icon-btn composer-upload-btn"
+                      type="text"
+                      size="small"
+                      aria-label="上传附件"
+                      :loading="uploading"
+                      :disabled="isGenerating || !isOwner"
+                    >
+                      <template #icon>
+                        <PaperClipOutlined />
+                      </template>
+                      {{ fileList.length ? '更换' : '上传' }}
+                    </a-button>
+                  </a-upload>
+                </span>
+              </a-tooltip>
             </div>
             <div class="input-actions">
-              <a-button
-                type="primary"
-                @click="sendMessage"
-                :loading="isGenerating"
-                :disabled="!isOwner"
+              <a-tooltip
+                title="Enter 发送，Shift + Enter 换行"
+                placement="top"
+                overlay-class-name="header-action-tooltip"
               >
-                <template #icon>
-                  <SendOutlined />
-                </template>
-              </a-button>
+                <span class="composer-tooltip-trigger">
+                  <a-button
+                    class="composer-icon-btn composer-send-btn"
+                    :class="{ 'composer-send-active': userInput.trim() || selectedFile }"
+                    type="primary"
+                    aria-label="发送消息"
+                    @click="sendMessage"
+                    :loading="isGenerating"
+                    :disabled="!isOwner"
+                  >
+                    <template #icon>
+                      <ArrowUpOutlined />
+                    </template>
+                  </a-button>
+                </span>
+              </a-tooltip>
             </div>
           </div>
         </div>
@@ -367,12 +388,12 @@ import { VisualEditor, type ElementInfo } from '@/utils/visualEditor'
 
 import {
   CloudUploadOutlined,
-  SendOutlined,
+  ArrowUpOutlined,
   ExportOutlined,
   InfoCircleOutlined,
   DownloadOutlined,
   EditOutlined,
-  UploadOutlined,
+  PaperClipOutlined,
   UserOutlined,
   LogoutOutlined,
   HistoryOutlined,
@@ -1439,7 +1460,7 @@ onUnmounted(() => {
 .upload-actions :deep(.ant-upload-list) {
   position: absolute;
   left: 0;
-  bottom: 32px;
+  bottom: 38px;
   width: 260px;
 }
 
@@ -1447,6 +1468,86 @@ onUnmounted(() => {
   position: absolute;
   bottom: 12px;
   right: 12px;
+}
+
+.composer-tooltip-trigger {
+  display: inline-flex;
+}
+
+.composer-icon-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.composer-icon-btn :deep(.anticon) {
+  font-size: 16px;
+}
+
+.composer-upload-btn {
+  gap: 5px;
+  min-width: auto;
+  height: 32px;
+  padding: 0 12px;
+  color: #111827;
+  background: #f3f4f6;
+  border: 1px solid transparent;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.composer-upload-btn:hover {
+  color: #111827;
+  background: #e9edf2;
+  border-color: transparent;
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+
+.composer-send-btn {
+  color: #fff;
+  border: none;
+  background: #c4c8cf;
+  box-shadow: none;
+}
+
+.composer-send-active {
+  background: #111827;
+}
+
+.composer-send-btn:hover,
+.composer-send-active:hover {
+  color: #fff;
+  background: #111827;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.composer-upload-btn:disabled,
+.composer-upload-btn:disabled:hover {
+  color: #94a3b8;
+  background: #f3f4f6;
+  box-shadow: none;
+  transform: none;
+}
+
+.composer-send-btn:disabled,
+.composer-send-btn:disabled:hover {
+  color: #fff;
+  background: #c4c8cf;
+  box-shadow: none;
+  transform: none;
 }
 
 /* 右侧预览区域 */
