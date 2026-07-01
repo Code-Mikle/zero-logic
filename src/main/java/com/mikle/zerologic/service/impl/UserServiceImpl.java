@@ -7,6 +7,8 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
+import com.mikle.zerologic.exception.ThrowUtils;
+import com.mikle.zerologic.model.dto.user.UserProfileUpdateRequest;
 import com.mikle.zerologic.model.dto.user.UserQueryRequest;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.mapper.UserMapper;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -105,6 +108,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         request.getSession().setAttribute(USER_LOGIN_STATE, user.getId());
         // 5. 返回脱敏的用户信息
         return this.getLoginUserVO(user);
+    }
+
+    @Override
+    public User updateMyUserProfile(UserProfileUpdateRequest request, User loginUser) {
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR, "请求参数为空");
+        ThrowUtils.throwIf(loginUser == null || loginUser.getId() == null, ErrorCode.NOT_LOGIN_ERROR);
+
+        User updateUser = new User();
+        updateUser.setId(loginUser.getId());
+        updateUser.setUserName(request.getUserName());
+        updateUser.setUserAvatar(request.getUserAvatar());
+        updateUser.setUserProfile(request.getUserProfile());
+        updateUser.setEditTime(LocalDateTime.now());
+
+        boolean updated = this.updateById(updateUser);
+        ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新个人资料失败");
+
+        User latestUser = this.getById(loginUser.getId());
+        ThrowUtils.throwIf(latestUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        return latestUser;
     }
 
     @Override

@@ -25,6 +25,10 @@
                     <UserOutlined />
                     个人中心
                   </a-menu-item>
+                  <a-menu-item @click="goDashboard">
+                    <DashboardOutlined />
+                    运营看板
+                  </a-menu-item>
                   <a-menu-divider />
                   <a-menu-item @click="doLogout">
                     <LogoutOutlined />
@@ -48,13 +52,17 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { DashboardOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
 
 const goUserCenter = () => {
   router.push('/user/center')
+}
+
+const goDashboard = () => {
+  router.push('/dashboard')
 }
 
 // 退出登录

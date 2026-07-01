@@ -18,6 +18,7 @@ import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.exception.ThrowUtils;
 import com.mikle.zerologic.mapper.AppMapper;
+import com.mikle.zerologic.mapper.GenerationTaskMapper;
 import com.mikle.zerologic.model.dto.app.AppAddRequest;
 import com.mikle.zerologic.model.dto.app.AppQueryRequest;
 import com.mikle.zerologic.model.entity.App;
@@ -90,6 +91,30 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private GenerationAppLockService generationAppLockService;
+
+    @Resource
+    private GenerationTaskMapper generationTaskMapper;
+
+    @Resource
+    private GenerationBuildRecordService generationBuildRecordService;
+
+    @Resource
+    private GenerationRepairRecordService generationRepairRecordService;
+
+    @Resource
+    private ToolCallRecordService toolCallRecordService;
+
+    @Resource
+    private RagRetrievalLogService ragRetrievalLogService;
+
+    @Resource
+    private KnowledgeEmbeddingService knowledgeEmbeddingService;
+
+    @Resource
+    private KnowledgeChunkService knowledgeChunkService;
+
+    @Resource
+    private KnowledgeDocumentService knowledgeDocumentService;
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, String displayMessage, User loginUser, Long attachmentId) {
@@ -426,6 +451,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
      * @return
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean removeById(Serializable id) {
         if (id == null) {
             return false;
@@ -434,13 +460,59 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (appId <= 0) {
             return false;
         }
-        // 先删除关联的对话历史
-        try {
-            chatHistoryService.deleteByAppId(appId);
-        } catch (Exception e) {
-            log.error("删除应用关联的对话历史失败：{}", e.getMessage());
+        App app = this.getById(appId);
+        if (app == null) {
+            return false;
         }
-        // 删除应用
-        return super.removeById(id);
+        deleteRelatedRecords(appId);
+        boolean removed = super.removeById(id);
+        if (removed) {
+            deleteGeneratedFiles(app);
+        }
+        return removed;
+    }
+
+    private void deleteRelatedRecords(Long appId) {
+        safeRemove("chat_history", () -> chatHistoryService.deleteByAppId(appId));
+        safeRemove("prompt_attachment", () -> promptAttachmentService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("rag_retrieval_log", () -> ragRetrievalLogService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("knowledge_embedding", () -> knowledgeEmbeddingService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("knowledge_chunk", () -> knowledgeChunkService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("knowledge_document", () -> knowledgeDocumentService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("tool_call_record", () -> toolCallRecordService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("generation_repair_record", () -> generationRepairRecordService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("generation_build_record", () -> generationBuildRecordService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("generation_task", () -> generationTaskMapper.deleteByQuery(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("deploy_record", () -> deployRecordService.remove(QueryWrapper.create().eq("appId", appId)));
+        safeRemove("project_version", () -> projectVersionService.remove(QueryWrapper.create().eq("appId", appId)));
+    }
+
+    private void safeRemove(String tableName, Runnable removeAction) {
+        try {
+            removeAction.run();
+        } catch (Exception e) {
+            log.warn("删除应用关联数据失败: table={}, reason={}", tableName, e.getMessage(), e);
+        }
+    }
+
+    private void deleteGeneratedFiles(App app) {
+        Long appId = app.getId();
+        safeDeleteDirectory("preview", new File(AppConstant.CODE_OUTPUT_ROOT_DIR
+                + File.separator + app.getCodeGenType() + "_" + appId));
+        if (StrUtil.isNotBlank(app.getDeployKey())) {
+            safeDeleteDirectory("deploy", new File(AppConstant.CODE_DEPLOY_ROOT_DIR
+                    + File.separator + app.getDeployKey()));
+        }
+        safeDeleteDirectory("project_versions", new File(AppConstant.PROJECT_VERSION_ROOT_DIR
+                + File.separator + "app_" + appId));
+    }
+
+    private void safeDeleteDirectory(String name, File directory) {
+        try {
+            FileUtil.del(directory);
+        } catch (Exception e) {
+            log.warn("删除应用本地产物失败: name={}, path={}, reason={}",
+                    name, directory.getAbsolutePath(), e.getMessage(), e);
+        }
     }
 }

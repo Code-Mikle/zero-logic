@@ -9,6 +9,7 @@ import com.mikle.zerologic.exception.ThrowUtils;
 import com.mikle.zerologic.mapper.GenerationTaskMapper;
 import com.mikle.zerologic.model.dto.generationtask.GenerationTaskCreateRequest;
 import com.mikle.zerologic.model.entity.App;
+import com.mikle.zerologic.model.entity.ChatHistory;
 import com.mikle.zerologic.model.entity.GenerationTask;
 import com.mikle.zerologic.model.entity.GenerationBuildRecord;
 import com.mikle.zerologic.model.entity.PromptAttachment;
@@ -20,6 +21,8 @@ import com.mikle.zerologic.model.enums.GenerationTaskTypeEnum;
 import com.mikle.zerologic.model.vo.GenerationTaskVO;
 import com.mikle.zerologic.model.vo.GenerationBuildRecordVO;
 import com.mikle.zerologic.model.vo.RagRetrievalVO;
+import com.mikle.zerologic.monitor.MonitorContext;
+import com.mikle.zerologic.monitor.MonitorContextHolder;
 import com.mikle.zerologic.service.*;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowRequest;
 import com.mikle.zerologic.workflow.generation.GenerationWorkflowService;
@@ -183,6 +186,13 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
             if (codeGenTypeEnum == null) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用代码生成类型错误");
             }
+            MonitorContextHolder.setContext(
+                    MonitorContext.builder()
+                            .userId(loginUser.getId().toString())
+                            .appId(task.getAppId().toString())
+                            .taskId(taskId.toString())
+                            .build()
+            );
             Flux<String> codeStream = generationWorkflowService.streamGenerate(
                     new GenerationWorkflowRequest(
                             task.getId(),
@@ -207,10 +217,12 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                                     updateTaskCanceled(taskId, "客户端断开连接，生成任务已取消");
                                 }
                                 generationAppLockService.release(appId, permitId);
+                                MonitorContextHolder.clearContext();
                             }
                     );
         } catch (RuntimeException | Error e) {
             generationAppLockService.release(task.getAppId(), permitId);
+            MonitorContextHolder.clearContext();
             updateTaskFailed(taskId, e);
             throw e;
         }
@@ -222,12 +234,73 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
                 .status(GenerationTaskStatusEnum.SUCCESS.getValue())
                 .endTime(LocalDateTime.now())
                 .currentStep("done")
+                .tokenUsage(estimateTokenUsageIfAbsent(taskId))
                 .build();
 
         boolean updated = this.updateById(task);
         if (!updated) {
             log.warn("updateTaskSuccess 更新 generation_task 表失败，taskId={}", taskId);
         }
+    }
+
+    /**
+     * 部分 OpenAI 兼容流式接口不会返回 TokenUsage。
+     * 如果监听器已经记录了精确值，这里不覆盖；否则使用 prompt 和最终 AI 回复做保守估算，保证看板不长期为 0。
+     */
+    private Long estimateTokenUsageIfAbsent(Long taskId) {
+        GenerationTask currentTask = this.getById(taskId);
+        if (currentTask == null) {
+            return null;
+        }
+        Long currentTokenUsage = currentTask.getTokenUsage();
+        if (currentTokenUsage != null && currentTokenUsage > 0) {
+            return null;
+        }
+        String aiResponse = getLatestAiResponse(taskId, currentTask);
+        long estimatedTokenUsage = estimateTokenCount(currentTask.getModelPrompt())
+                + estimateTokenCount(aiResponse);
+        if (estimatedTokenUsage > 0) {
+            log.info("未获取到模型真实 TokenUsage，使用估算 token 写入任务: taskId={}, estimatedTokenUsage={}",
+                    taskId, estimatedTokenUsage);
+        }
+        return estimatedTokenUsage > 0 ? estimatedTokenUsage : null;
+    }
+
+    private String getLatestAiResponse(Long taskId, GenerationTask task) {
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .eq("taskId", taskId)
+                .eq("appId", task.getAppId())
+                .eq("userId", task.getUserId())
+                .eq("messageType", ChatHistoryMessageTypeEnum.AI.getValue())
+                .orderBy("createTime", false)
+                .limit(1);
+        ChatHistory chatHistory = chatHistoryService.getOne(queryWrapper);
+        return chatHistory == null ? null : chatHistory.getMessage();
+    }
+
+    private long estimateTokenCount(String text) {
+        if (StrUtil.isBlank(text)) {
+            return 0;
+        }
+        long cjkCharCount = 0;
+        long otherCharCount = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (Character.isWhitespace(ch)) {
+                continue;
+            }
+            Character.UnicodeScript script = Character.UnicodeScript.of(ch);
+            if (Character.UnicodeScript.HAN.equals(script)
+                    || Character.UnicodeScript.HIRAGANA.equals(script)
+                    || Character.UnicodeScript.KATAKANA.equals(script)
+                    || Character.UnicodeScript.HANGUL.equals(script)) {
+                cjkCharCount++;
+            } else {
+                otherCharCount++;
+            }
+        }
+        long estimated = cjkCharCount + (long) Math.ceil(otherCharCount / 4.0);
+        return Math.max(1, estimated);
     }
 
     private void updateTaskFailed(Long taskId, Throwable e) {

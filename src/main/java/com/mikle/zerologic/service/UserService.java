@@ -2,6 +2,7 @@ package com.mikle.zerologic.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.mikle.zerologic.model.dto.user.UserProfileUpdateRequest;
 import com.mikle.zerologic.model.dto.user.UserQueryRequest;
 import com.mikle.zerologic.model.entity.User;
 import com.mikle.zerologic.model.vo.LoginUserVO;
@@ -42,6 +43,15 @@ public interface UserService extends IService<User> {
      * @return 脱敏后的用户信息
      */
     LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request);
+
+    /**
+     * 更新当前登录用户资料。
+     *
+     * @param request   更新请求
+     * @param loginUser 当前登录用户
+     * @return 更新后的用户
+     */
+    User updateMyUserProfile(UserProfileUpdateRequest request, User loginUser);
 
     /**
      * 获取当前登录用户

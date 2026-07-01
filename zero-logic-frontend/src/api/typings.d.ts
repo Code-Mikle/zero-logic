@@ -92,6 +92,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseGenerationDashboardVO = {
+    code?: number
+    data?: GenerationDashboardVO
+    message?: string
+  }
+
   type BaseResponsePageAppVO = {
     code?: number
     data?: PageAppVO
@@ -182,6 +188,34 @@ declare namespace API {
 
   type getUserVOByIdParams = {
     id: number
+  }
+
+  type getGenerationDashboardParams = {
+    appId?: number | string
+  }
+
+  type DailyGenerationStatVO = {
+    date?: string
+    taskCount?: number
+    successCount?: number
+    failedCount?: number
+  }
+
+  type GenerationDashboardVO = {
+    totalTaskCount?: number
+    successTaskCount?: number
+    failedTaskCount?: number
+    runningTaskCount?: number
+    successRate?: number
+    totalTokenUsage?: number
+    totalToolCallCount?: number
+    avgDurationSeconds?: number
+    buildSuccessCount?: number
+    buildFailedCount?: number
+    repairTotalCount?: number
+    repairSuccessCount?: number
+    highRiskToolCallCount?: number
+    dailyStats?: DailyGenerationStatVO[]
   }
 
   type listAppChatHistoryParams = {
@@ -285,6 +319,12 @@ declare namespace API {
     userAccount?: string
     userPassword?: string
     checkPassword?: string
+  }
+
+  type UserProfileUpdateRequest = {
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
   }
 
   type UserUpdateRequest = {

@@ -61,6 +61,21 @@
                 </a-button>
               </span>
             </a-tooltip>
+            <a-tooltip title="查看当前应用运营看板" placement="bottom" overlay-class-name="header-action-tooltip">
+              <span class="header-tooltip-trigger">
+                <a-button
+                  class="header-icon-btn"
+                  type="text"
+                  aria-label="查看当前应用运营看板"
+                  @click="openDashboard"
+                  :disabled="!isOwner"
+                >
+                  <template #icon>
+                    <DashboardOutlined />
+                  </template>
+                </a-button>
+              </span>
+            </a-tooltip>
             <a-tooltip
               v-if="isOwner && previewUrl"
               :title="isEditMode ? '退出可视化编辑模式' : '进入可视化编辑模式'"
@@ -397,6 +412,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   HistoryOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons-vue'
 import { uploadAttachment } from '@/api/attachmentControllers.ts'
 import { createGenerationTask } from '@/api/generationTaskController'
@@ -931,6 +947,13 @@ const openTaskDetail = (taskId: number | string) => {
 
 const openVersionDrawer = () => {
   versionDrawerVisible.value = true
+}
+
+const openDashboard = () => {
+  router.push({
+    path: '/dashboard',
+    query: { appId: String(appId.value) },
+  })
 }
 
 const withCacheBust = (url: string) => {

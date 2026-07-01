@@ -15,6 +15,7 @@ import com.mikle.zerologic.model.vo.LoginUserVO;
 import com.mikle.zerologic.model.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,6 +72,17 @@ public class UserController {
     public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         return ResultUtils.success(userService.getLoginUserVO(loginUser));
+    }
+
+    /**
+     * 更新当前登录用户资料
+     */
+    @PostMapping("/update/my")
+    public BaseResponse<LoginUserVO> updateMyUserProfile(@RequestBody @Valid UserProfileUpdateRequest updateRequest,
+                                                         HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        User updatedUser = userService.updateMyUserProfile(updateRequest, loginUser);
+        return ResultUtils.success(userService.getLoginUserVO(updatedUser));
     }
 
     /**

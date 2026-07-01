@@ -8,6 +8,7 @@ import AppChatPage from '@/pages/app/AppChatPage.vue'
 import AppEditPage from '@/pages/app/AppEditPage.vue'
 import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
 import UserCenterPage from '@/pages/user/UserCenterPage.vue'
+import DashboardPage from '@/pages/DashboardPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,6 +47,11 @@ const router = createRouter({
       path: '/user/center',
       name: '个人中心',
       component: UserCenterPage,
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: DashboardPage,
     },
     {
       path: '/admin/appManage',
