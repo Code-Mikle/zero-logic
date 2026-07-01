@@ -1,10 +1,23 @@
 <template>
-  <div id="userRegisterPage">
-    <h2 class="title">ZeroLogic - 用户注册</h2>
-    <div class="desc">不写一行代码，生成完整应用</div>
-    <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
+  <AuthShell
+    title="创建账号"
+    subtitle="从一个想法开始，把灵感逐步变成完整应用"
+    variant="register"
+  >
+    <a-form
+      class="auth-form"
+      :model="formState"
+      name="register"
+      layout="vertical"
+      autocomplete="off"
+      @finish="handleSubmit"
+    >
       <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
-        <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
+        <a-input v-model:value="formState.userAccount" placeholder="请输入账号">
+          <template #prefix>
+            <UserOutlined />
+          </template>
+        </a-input>
       </a-form-item>
       <a-form-item
         name="userPassword"
@@ -13,7 +26,11 @@
           { min: 8, message: '密码不能小于 8 位' },
         ]"
       >
-        <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码" />
+        <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码">
+          <template #prefix>
+            <LockOutlined />
+          </template>
+        </a-input-password>
       </a-form-item>
       <a-form-item
         name="checkPassword"
@@ -23,17 +40,21 @@
           { validator: validateCheckPassword },
         ]"
       >
-        <a-input-password v-model:value="formState.checkPassword" placeholder="请确认密码" />
+        <a-input-password v-model:value="formState.checkPassword" placeholder="请确认密码">
+          <template #prefix>
+            <SafetyOutlined />
+          </template>
+        </a-input-password>
+      </a-form-item>
+      <a-form-item>
+        <a-button type="primary" html-type="submit" block>注册</a-button>
       </a-form-item>
       <div class="tips">
-        已有账号？
+        <span>已有账号？</span>
         <RouterLink to="/user/login">去登录</RouterLink>
       </div>
-      <a-form-item>
-        <a-button type="primary" html-type="submit" style="width: 100%">注册</a-button>
-      </a-form-item>
     </a-form>
-  </div>
+  </AuthShell>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +62,8 @@ import { useRouter } from 'vue-router'
 import { userRegister } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
 import { reactive } from 'vue'
+import { LockOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons-vue'
+import AuthShell from '@/components/AuthShell.vue'
 
 const router = useRouter()
 
@@ -84,28 +107,16 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
 </script>
 
 <style scoped>
-#userRegisterPage {
-  background: white;
-  max-width: 720px;
-  padding: 24px;
-  margin: 24px auto;
-}
-
-.title {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.desc {
-  text-align: center;
-  color: #bbb;
-  margin-bottom: 16px;
-}
-
 .tips {
-  margin-bottom: 16px;
-  color: #bbb;
-  font-size: 13px;
-  text-align: right;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.tips a {
+  color: #1677ff;
+  font-weight: 700;
 }
 </style>

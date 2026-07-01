@@ -1115,7 +1115,7 @@ onUnmounted(() => {
 
 /* 顶部工作台栏 */
 .workspace-header {
-  height: 68px;
+  height: 56px;
   flex-shrink: 0;
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr) auto;
@@ -1317,8 +1317,8 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  gap: 8px;
+  padding: 8px;
   overflow: hidden;
 }
 
