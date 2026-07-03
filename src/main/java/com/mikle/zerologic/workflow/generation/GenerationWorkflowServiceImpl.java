@@ -138,9 +138,12 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
     private void runPostGenerationWorkflow(GenerationWorkflowContext context) {
         try {
             CompiledGraph<MessagesState<String>> workflow = createPostGenerationWorkflow();
+
             for (NodeOutput<MessagesState<String>> step : workflow.stream(
                     Map.of(GenerationWorkflowContext.CONTEXT_KEY, context))) {
+
                 GenerationWorkflowContext currentContext = GenerationWorkflowContext.getContext(step.state());
+
                 if (currentContext != null) {
                     context.setCurrentStep(currentContext.getCurrentStep());
                     context.setGeneratedProjectDir(currentContext.getGeneratedProjectDir());

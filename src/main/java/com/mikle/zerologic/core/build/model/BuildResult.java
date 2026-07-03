@@ -13,13 +13,22 @@ public class BuildResult implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Long buildRecordId;
+
     private Boolean success;
+
     private String status;
+
     private String command;
+
     private Integer exitCode;
+
     private String logText;
+
     private Long durationMs;
+
     private Boolean timedOut;
+
     private String projectPath;
+
     private String artifactPath;
 }

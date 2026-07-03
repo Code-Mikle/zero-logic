@@ -12,6 +12,7 @@ class ProjectToolPathResolverTest {
     @Test
     void resolvesPathInsideGeneratedProject() throws Exception {
         Path result = resolver.resolve(42L, "src/App.vue");
+        System.out.println(result.toString());
         assertTrue(result.endsWith(Path.of("vue_project_42", "src", "App.vue")));
     }
 

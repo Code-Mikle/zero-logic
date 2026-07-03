@@ -33,32 +33,33 @@ public class GenerationWorkflowContext implements Serializable {
 
     private Long userId;
 
+    // 真正传给模型的初始消息
     private String message;
-
+    // 用户原始展示消息
     private String displayMessage;
-
+    // 生成类型，比如 HTML、多文件、Vue 项目
     private CodeGenTypeEnum codeGenType;
 
     private Long attachmentId;
-
+    // 当前 workflow 步骤，初始为 init
     private String currentStep;
-
+    // 原始用户消息，用于 RAG 检索和 prompt 展示
     private String originalMessage;
 
     private String ragContext;
 
     private List<RagRetrievedChunk> ragReferences;
-
+    // 最终传给模型的 prompt，初始等于 message
     private String assembledMessage;
 
     private String generatedProjectDir;
-
+    // 构建次数，初始为 1
     private Integer buildAttempt;
 
     private BuildResult buildResult;
 
     private BuildDiagnosis buildDiagnosis;
-
+    // 自动修复次数，初始为 0
     private Integer repairAttempt;
 
     private CodeRepairResult repairResult;

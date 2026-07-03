@@ -6,7 +6,6 @@ tmp
 resources/application-local.yml
 resources/application-prod.yml
 
-README.md
 zero-logic-frontend/README.md
 
 # Certificates and private keys

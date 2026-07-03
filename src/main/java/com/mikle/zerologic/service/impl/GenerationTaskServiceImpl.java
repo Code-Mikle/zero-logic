@@ -152,11 +152,11 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
     @Override
     public Flux<String> streamGenerateTask(Long taskId, User loginUser) {
+        // Flux.defer 有订阅者订阅时才执行，而不是在代码定义时就立即执行
         return Flux.defer(() -> streamGenerateTaskNow(taskId, loginUser));
     }
 
     private Flux<String> streamGenerateTaskNow(Long taskId, User loginUser) {
-
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         GenerationTask task = this.getById(taskId);
         ThrowUtils.throwIf(task == null, ErrorCode.NOT_FOUND_ERROR,
