@@ -1,5 +1,6 @@
 package com.mikle.zerologic.workflow.generation.node;
 
+import cn.hutool.core.util.StrUtil;
 import com.mikle.zerologic.config.AssetProperties;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
@@ -17,7 +18,9 @@ import org.bsc.langgraph4j.prebuilt.MessagesState;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
@@ -57,6 +60,7 @@ public class AssetCollectNode {
         }
 
         List<AssetResource> resources = new ArrayList<>();
+        Set<String> seenUrls = new HashSet<>();
         for (AssetSearchTask task : plan.getSearchTasks()) {
             if (resources.size() >= assetProperties.getMaxAssets()) {
                 break;
@@ -73,6 +77,9 @@ public class AssetCollectNode {
                     if (resources.size() >= assetProperties.getMaxAssets()) {
                         break;
                     }
+                    if (!isValidImageUrl(resource.getUrl()) || !seenUrls.add(resource.getUrl())) {
+                        continue;
+                    }
                     resources.add(resource);
                 }
             } catch (Exception e) {
@@ -80,6 +87,14 @@ public class AssetCollectNode {
                         context.getAppId(), task.getKeyword(), e);
             }
         }
+        if (resources.isEmpty()) {
+            log.info("Asset plan enabled but no asset found, appId={}, taskId={}",
+                    context.getAppId(), context.getTaskId());
+        }
         return resources;
+    }
+
+    private boolean isValidImageUrl(String url) {
+        return StrUtil.startWithAny(url, "http://", "https://");
     }
 }

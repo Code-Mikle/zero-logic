@@ -1,5 +1,7 @@
 package com.mikle.zerologic.config;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
@@ -36,6 +38,18 @@ public class AssetProperties {
     @Min(200)
     @Max(8000)
     private int maxPlanPromptChars = 2000;
+
+    @Min(200)
+    @Max(12000)
+    private int maxPlanContextChars = 4000;
+
+    @Min(128)
+    @Max(2048)
+    private int planMaxTokens = 800;
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    private Double planTemperature = 0.1;
 
     private String pexelsApiKey = "";
 }

@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.bsc.langgraph4j.StateGraph.END;
@@ -84,6 +85,7 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
             }
 
             int stepCounter = 1;
+            String lastLoggedStep = null;
 
             for (NodeOutput<MessagesState<String>> step : workflow.stream(
                     Map.of(GenerationWorkflowContext.CONTEXT_KEY, initialContext))) {
@@ -93,13 +95,17 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
 
                 if (currentContext != null) {
                     contextRef.set(currentContext);
-                    log.info("生成工作流第 {} 步完成: appId={}, currentStep={}",
-                            stepCounter,
-                            currentContext.getAppId(),
-                            currentContext.getCurrentStep());
+                    String currentStep = currentContext.getCurrentStep();
+                    if (!Objects.equals(lastLoggedStep, currentStep)) {
+                        log.info("生成工作流第 {} 步完成: appId={}, currentStep={}",
+                                stepCounter,
+                                currentContext.getAppId(),
+                                currentStep);
+                        lastLoggedStep = currentStep;
+                        stepCounter++;
+                    }
                 }
 
-                stepCounter++;
             }
         } catch (Exception e) {
             log.error("生成工作流执行失败, appId={}", request.appId(), e);

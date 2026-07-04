@@ -17,7 +17,6 @@ import org.bsc.langgraph4j.prebuilt.MessagesState;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
@@ -27,10 +26,6 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 public class AssetPlanNode {
 
     private static final int MAX_KEYWORD_LENGTH = 120;
-
-    private static final List<String> SKIP_TERMS = List.of(
-            "后台管理", "管理系统", "控制台", "crud", "表单", "接口", "api", "登录页", "注册页",
-            "dashboard", "admin", "console", "form", "login", "register");
 
     @Resource
     private AssetProperties assetProperties;
@@ -68,15 +63,12 @@ public class AssetPlanNode {
         }
 
         String prompt = StrUtil.blankToDefault(context.getOriginalMessage(), context.getMessage());
-        if (StrUtil.isBlank(prompt)) {
-            return disabled("empty prompt");
-        }
-        if (isObviouslyNonVisual(prompt)) {
-            return disabled("non-visual application scenario");
+        if (StrUtil.isBlank(prompt) && StrUtil.isBlank(context.getRagContext())) {
+            return disabled("empty planning context");
         }
 
         try {
-            AssetPlan rawPlan = assetPlanService.plan(buildPlanningRequest(prompt));
+            AssetPlan rawPlan = assetPlanService.plan(buildPlanningRequest(context, prompt));
             return sanitizePlan(rawPlan);
         } catch (Exception e) {
             log.warn("AI asset planning failed, appId={}", context.getAppId(), e);
@@ -84,17 +76,29 @@ public class AssetPlanNode {
         }
     }
 
-    private String buildPlanningRequest(String prompt) {
+    private String buildPlanningRequest(GenerationWorkflowContext context, String prompt) {
         return """
-                User website request:
+                Current user request:
                 %s
+
+                Retrieved application context:
+                %s
+
+                Planning task:
+                Decide whether this generation turn needs external visual assets.
+                If the current request is short, follow-up, or about a broken/missing/unsuitable image,
+                use the retrieved application context to infer the website theme and plan replacement image keywords.
 
                 Planning constraints:
                 - maxKeywords: %d
                 - perKeywordLimit: %d
                 - only content image search is supported
+                - return compact JSON only
+                - reason must be no longer than 80 characters
+                - keyword must be English and no longer than 8 words
                 """.formatted(
-                StrUtil.subPre(prompt, assetProperties.getMaxPlanPromptChars()),
+                StrUtil.subPre(StrUtil.blankToDefault(prompt, ""), assetProperties.getMaxPlanPromptChars()),
+                StrUtil.subPre(StrUtil.blankToDefault(context.getRagContext(), ""), assetProperties.getMaxPlanContextChars()),
                 assetProperties.getMaxKeywords(),
                 assetProperties.getPerKeywordLimit());
     }
@@ -122,7 +126,7 @@ public class AssetPlanNode {
 
         return AssetPlan.builder()
                 .enabled(true)
-                .reason(StrUtil.blankToDefault(rawPlan.getReason(), "ai planned visual assets"))
+                .reason(StrUtil.subPre(StrUtil.blankToDefault(rawPlan.getReason(), "ai planned visual assets"), 200))
                 .searchTasks(tasks)
                 .build();
     }
@@ -156,16 +160,6 @@ public class AssetPlanNode {
     private Integer normalizeLimit(Integer limit) {
         int requested = limit == null || limit <= 0 ? assetProperties.getPerKeywordLimit() : limit;
         return Math.max(1, Math.min(requested, assetProperties.getPerKeywordLimit()));
-    }
-
-    private boolean isObviouslyNonVisual(String prompt) {
-        String normalized = prompt.toLowerCase(Locale.ROOT);
-        for (String term : SKIP_TERMS) {
-            if (normalized.contains(term.toLowerCase(Locale.ROOT))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private AssetPlan disabled(String reason) {

@@ -115,6 +115,7 @@ public class PexelsAssetSearchServiceImpl implements AssetSearchService {
             arguments.set("limit", request.getLimit());
 
             JSONObject result = new JSONObject();
+            result.set("keyword", request.getKeyword());
             result.set("source", "pexels");
             result.set("count", assets == null ? 0 : assets.size());
 
