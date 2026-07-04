@@ -4,6 +4,8 @@ import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.service.GenerationAppLockService;
 import com.mikle.zerologic.workflow.generation.node.CodeGenerateNode;
+import com.mikle.zerologic.workflow.generation.node.AssetCollectNode;
+import com.mikle.zerologic.workflow.generation.node.AssetPlanNode;
 import com.mikle.zerologic.workflow.generation.node.BuildCheckNode;
 import com.mikle.zerologic.workflow.generation.node.ErrorAnalyzeNode;
 import com.mikle.zerologic.workflow.generation.node.AutoRepairNode;
@@ -45,6 +47,12 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
 
     @Resource
     private PromptAssembleNode promptAssembleNode;
+
+    @Resource
+    private AssetPlanNode assetPlanNode;
+
+    @Resource
+    private AssetCollectNode assetCollectNode;
 
     @Resource
     private BuildCheckNode buildCheckNode;
@@ -122,11 +130,15 @@ public class GenerationWorkflowServiceImpl implements GenerationWorkflowService 
             return new MessagesStateGraph<String>()
                     .addNode("prepare_context", prepareContextNode.create())
                     .addNode("rag_retrieve", ragRetrieveNode.create())
+                    .addNode("asset_plan", assetPlanNode.create())
+                    .addNode("asset_collect", assetCollectNode.create())
                     .addNode("prompt_assemble", promptAssembleNode.create())
                     .addNode("code_generate", codeGenerateNode.create(codeStreamRef))
                     .addEdge(START, "prepare_context")
                     .addEdge("prepare_context", "rag_retrieve")
-                    .addEdge("rag_retrieve", "prompt_assemble")
+                    .addEdge("rag_retrieve", "asset_plan")
+                    .addEdge("asset_plan", "asset_collect")
+                    .addEdge("asset_collect", "prompt_assemble")
                     .addEdge("prompt_assemble", "code_generate")
                     .addEdge("code_generate", END)
                     .compile();

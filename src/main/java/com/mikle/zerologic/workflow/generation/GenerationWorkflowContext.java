@@ -5,6 +5,8 @@ import com.mikle.zerologic.core.build.model.BuildResult;
 import com.mikle.zerologic.core.build.model.BuildDiagnosis;
 import com.mikle.zerologic.core.repair.model.CodeRepairResult;
 import com.mikle.zerologic.rag.model.RagRetrievedChunk;
+import com.mikle.zerologic.workflow.generation.asset.AssetPlan;
+import com.mikle.zerologic.workflow.generation.asset.AssetResource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -49,6 +51,10 @@ public class GenerationWorkflowContext implements Serializable {
     private String ragContext;
 
     private List<RagRetrievedChunk> ragReferences;
+
+    private AssetPlan assetPlan;
+
+    private List<AssetResource> assetResources;
     // 最终传给模型的 prompt，初始等于 message
     private String assembledMessage;
 
