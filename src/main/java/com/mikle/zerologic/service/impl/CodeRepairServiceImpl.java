@@ -87,7 +87,7 @@ public class CodeRepairServiceImpl implements CodeRepairService {
 
     private void invokeAgent(Long taskId, Long appId, Long userId,
                              String prompt, StringBuilder response) throws Exception {
-        AiCodeGeneratorService service = aiServiceFactory.getAiCodeGeneratorService(appId, CodeGenTypeEnum.VUE_PROJECT);
+        AiCodeGeneratorService service = aiServiceFactory.getAiCodeGeneratorService(CodeGenTypeEnum.VUE_PROJECT);
         CompletableFuture<Void> completion = new CompletableFuture<>();
         TokenStream stream = service.repairVueProject(appId, prompt);
         ToolExecutionContextHolder.set(ToolExecutionContext.builder()
