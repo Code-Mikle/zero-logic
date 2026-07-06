@@ -4,27 +4,13 @@
   </h1>
 
   <p>
-    <a href="https://openjdk.org/projects/jdk/21/">
-      <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21" />
-    </a>
-    <a href="https://spring.io/projects/spring-boot">
-      <img src="https://img.shields.io/badge/Spring%20Boot-3-brightgreen" alt="Spring Boot 3" />
-    </a>
-    <a href="https://vuejs.org/">
-      <img src="https://img.shields.io/badge/Vue-3-42b883" alt="Vue 3" />
-    </a>
-    <a href="https://www.typescriptlang.org/">
-      <img src="https://img.shields.io/badge/TypeScript-5-blue" alt="TypeScript 5" />
-    </a>
-    <a href="https://github.com/langchain4j/langchain4j">
-      <img src="https://img.shields.io/badge/LangChain4j-AI-blueviolet" alt="LangChain4j" />
-    </a>
-    <a href="https://github.com/langgraph4j/langgraph4j">
-      <img src="https://img.shields.io/badge/LangGraph4j-Workflow-6f42c1" alt="LangGraph4j" />
-    </a>
-    <a href="LICENSE">
-      <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="Apache 2.0 License" />
-    </a>
+    <a href="https://openjdk.org/projects/jdk/21/"><img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21" /></a>
+    <a href="https://spring.io/projects/spring-boot"><img src="https://img.shields.io/badge/Spring%20Boot-3-brightgreen" alt="Spring Boot 3" /></a>
+    <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3-42b883" alt="Vue 3" /></a>
+    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-blue" alt="TypeScript 5" /></a>
+    <a href="https://github.com/langchain4j/langchain4j"><img src="https://img.shields.io/badge/LangChain4j-AI-blueviolet" alt="LangChain4j" /></a>
+    <a href="https://github.com/langgraph4j/langgraph4j"><img src="https://img.shields.io/badge/LangGraph4j-Workflow-6f42c1" alt="LangGraph4j" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="Apache 2.0 License" /></a>
   </p>
 </div>
 
