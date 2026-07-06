@@ -550,11 +550,19 @@ const loadChatHistory = async (isLoadMore = false) => {
           }))
           .reverse() // 反转数组，让老消息在前
         if (isLoadMore) {
+          const container = messagesContainer.value
+          const previousScrollHeight = container?.scrollHeight ?? 0
+          const previousScrollTop = container?.scrollTop ?? 0
           // 加载更多时，将历史消息添加到开头
           messages.value.unshift(...historyMessages)
+          await nextTick()
+          if (container) {
+            container.scrollTop = previousScrollTop + (container.scrollHeight - previousScrollHeight)
+          }
         } else {
           // 初始加载，直接设置消息列表
           messages.value = historyMessages
+          scrollToBottom('auto')
         }
         // 更新游标
         lastCreateTime.value = chatHistories[chatHistories.length - 1]?.createTime
@@ -972,10 +980,18 @@ const updatePreview = () => {
 }
 
 // 滚动到底部
-const scrollToBottom = () => {
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-  }
+const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const container = messagesContainer.value
+      if (container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior,
+        })
+      }
+    })
+  })
 }
 
 // 下载代码
