@@ -18,9 +18,11 @@ import com.mikle.zerologic.service.PromptAttachmentService;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -88,9 +90,20 @@ public class KnowledgeIngestServiceImpl implements KnowledgeIngestService {
                 .contentHash(sha256)
                 .status(KnowledgeDocumentStatusEnum.ACTIVE.getValue())
                 .build();
-        boolean saved = knowledgeDocumentService.save(documentToInsert);
-        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR,
+        try {
+            boolean saved = knowledgeDocumentService.save(documentToInsert);
+            ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR,
                 "ingestAttachment 插入 knowledge_document 表失败");
+
+        } catch (RuntimeException e) {
+            if (isDuplicateKeyException(e)) {
+                KnowledgeDocument existingDocument = knowledgeDocumentService.getOne(knowledgeDocumentQuery);
+                if (existingDocument != null) {
+                    return existingDocument.getId();
+                }
+            }
+            throw e;
+        }
 
         // insert into `knowledge_chunk`
         List<DocumentChunk> documentChunkList = documentChunker.split(attachment.getContent());
@@ -134,5 +147,26 @@ public class KnowledgeIngestServiceImpl implements KnowledgeIngestService {
                 "ingestAttachment 插入 knowledge_embedding 表失败");
 
         return documentToInsert.getId();
+    }
+
+    private boolean isDuplicateKeyException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof DuplicateKeyException
+                    || current instanceof SQLIntegrityConstraintViolationException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String lowerMessage = message.toLowerCase();
+                if (lowerMessage.contains("duplicate entry")
+                        || lowerMessage.contains("duplicate key")
+                        || lowerMessage.contains("uk_app_attachment")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

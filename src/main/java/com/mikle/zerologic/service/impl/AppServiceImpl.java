@@ -224,31 +224,54 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Override
     public String deployApp(Long appId, User loginUser) {
-        App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
-        ProjectVersion latestVersion = projectVersionService.getLatestDeployableVersion(appId, loginUser.getId());
-        ThrowUtils.throwIf(latestVersion == null, ErrorCode.NOT_FOUND_ERROR,
-                "未找到可部署版本，请先完成一次生成");
-        return deployVersionInternal(app, latestVersion, loginUser, DeployTypeEnum.DEPLOY.getValue());
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        String permitId = generationAppLockService.acquire(appId);
+        try {
+            App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
+            ProjectVersion latestVersion = projectVersionService.getLatestDeployableVersion(appId, loginUser.getId());
+            ThrowUtils.throwIf(latestVersion == null, ErrorCode.NOT_FOUND_ERROR,
+                    "未找到可部署版本，请先完成一次生成");
+            return deployVersionInternal(app, latestVersion, loginUser, DeployTypeEnum.DEPLOY.getValue());
+        } finally {
+            generationAppLockService.release(appId, permitId);
+        }
     }
 
     @Override
     public String deployVersion(Long appId, Long versionId, User loginUser) {
-        App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
-        ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
-        ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
-                "版本不存在、无权访问或不可部署");
-        return deployVersionInternal(app, version, loginUser, DeployTypeEnum.DEPLOY.getValue());
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(versionId == null || versionId <= 0, ErrorCode.PARAMS_ERROR, "版本 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        String permitId = generationAppLockService.acquire(appId);
+        try {
+            App app = getOwnedApp(appId, loginUser, "无权限部署该应用");
+            ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
+            ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
+                    "版本不存在、无权访问或不可部署");
+            return deployVersionInternal(app, version, loginUser, DeployTypeEnum.DEPLOY.getValue());
+        } finally {
+            generationAppLockService.release(appId, permitId);
+        }
     }
 
     @Override
     public String rollbackVersion(Long appId, Long versionId, User loginUser) {
-        App app = getOwnedApp(appId, loginUser, "无权限回滚该应用");
-        ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
-        ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
-                "版本不存在、无权访问或不可回滚");
-        String appDeployUrl = deployVersionInternal(app, version, loginUser, DeployTypeEnum.ROLLBACK.getValue());
-        truncateVersionsAfterRollback(appId, loginUser.getId(), version.getVersionNo());
-        return appDeployUrl;
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(versionId == null || versionId <= 0, ErrorCode.PARAMS_ERROR, "版本 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        String permitId = generationAppLockService.acquire(appId);
+        try {
+            App app = getOwnedApp(appId, loginUser, "无权限回滚该应用");
+            ProjectVersion version = projectVersionService.getDeployableVersion(appId, loginUser.getId(), versionId);
+            ThrowUtils.throwIf(version == null, ErrorCode.NOT_FOUND_ERROR,
+                    "版本不存在、无权访问或不可回滚");
+            String appDeployUrl = deployVersionInternal(app, version, loginUser, DeployTypeEnum.ROLLBACK.getValue());
+            truncateVersionsAfterRollback(appId, loginUser.getId(), version.getVersionNo());
+            return appDeployUrl;
+        } finally {
+            generationAppLockService.release(appId, permitId);
+        }
     }
 
     @Override
