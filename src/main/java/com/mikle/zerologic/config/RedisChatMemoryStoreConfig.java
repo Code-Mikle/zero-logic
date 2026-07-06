@@ -28,6 +28,7 @@ public class RedisChatMemoryStoreConfig {
         RedisChatMemoryStore.Builder builder = RedisChatMemoryStore.builder()
                 .host(host)
                 .port(port)
+                .prefix("zero-logic:chat-memory:")
                 .password(password)
                 .ttl(ttl);
         if (StrUtil.isNotBlank(password)) {

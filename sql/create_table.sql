@@ -301,3 +301,5 @@ CREATE TABLE IF NOT EXISTS deploy_record (
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
 );
+
+CREATE INDEX idx_priority_createTime ON app(priority, createTime);
