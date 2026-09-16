@@ -1,0 +1,427 @@
+package com.mikle.zerologic.generation.task.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
+import com.mikle.zerologic.app.constant.AppConstant;
+import com.mikle.zerologic.app.service.AppService;
+import com.mikle.zerologic.conversation.service.ChatHistoryService;
+import com.mikle.zerologic.generation.build.service.GenerationBuildRecordService;
+import com.mikle.zerologic.generation.repair.service.GenerationRepairRecordService;
+import com.mikle.zerologic.generation.stream.handler.StreamHandlerExecutor;
+import com.mikle.zerologic.exception.BusinessException;
+import com.mikle.zerologic.exception.ErrorCode;
+import com.mikle.zerologic.exception.ThrowUtils;
+import com.mikle.zerologic.generation.task.mapper.GenerationTaskMapper;
+import com.mikle.zerologic.generation.task.model.dto.GenerationTaskCreateRequest;
+import com.mikle.zerologic.app.model.entity.App;
+import com.mikle.zerologic.conversation.model.entity.ChatHistory;
+import com.mikle.zerologic.generation.task.model.entity.GenerationTask;
+import com.mikle.zerologic.generation.task.service.GenerationAppLockService;
+import com.mikle.zerologic.generation.task.service.GenerationTaskService;
+import com.mikle.zerologic.generation.build.model.entity.GenerationBuildRecord;
+import com.mikle.zerologic.generation.tool.service.ToolCallRecordService;
+import com.mikle.zerologic.knowledge.attachment.service.PromptAttachmentService;
+import com.mikle.zerologic.knowledge.attachment.model.entity.PromptAttachment;
+import com.mikle.zerologic.knowledge.ingest.service.KnowledgeIngestService;
+import com.mikle.zerologic.knowledge.retrieval.service.RagRetrievalLogQueryService;
+import com.mikle.zerologic.user.model.entity.User;
+import com.mikle.zerologic.conversation.model.enums.ChatHistoryMessageTypeEnum;
+import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
+import com.mikle.zerologic.generation.task.model.enums.GenerationTaskStatusEnum;
+import com.mikle.zerologic.generation.task.model.enums.GenerationTaskTypeEnum;
+import com.mikle.zerologic.generation.task.model.vo.GenerationTaskVO;
+import com.mikle.zerologic.generation.build.model.vo.GenerationBuildRecordVO;
+import com.mikle.zerologic.knowledge.retrieval.model.vo.RagRetrievalVO;
+import com.mikle.zerologic.generation.monitoring.MonitorContext;
+import com.mikle.zerologic.generation.monitoring.MonitorContextHolder;
+import com.mikle.zerologic.generation.workflow.model.GenerationWorkflowRequest;
+import com.mikle.zerologic.generation.workflow.service.GenerationWorkflowService;
+import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.spring.service.impl.ServiceImpl;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.SignalType;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import static com.mikle.zerologic.generation.task.constant.GenerationPromptLimitConstant.MAX_MODEL_MESSAGE_LENGTH;
+import static com.mikle.zerologic.generation.task.constant.GenerationPromptLimitConstant.MAX_USER_PROMPT_LENGTH;
+import static com.mikle.zerologic.knowledge.attachment.constant.AttachmentLimitConstant.MAX_ATTACHMENT_CONTENT_LENGTH;
+
+@Service
+@Slf4j
+public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper, GenerationTask> implements GenerationTaskService {
+
+    @Resource
+    private AppService appService;
+
+    @Resource
+    private PromptAttachmentService promptAttachmentService;
+
+    @Resource
+    private GenerationAppLockService generationAppLockService;
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private GenerationWorkflowService generationWorkflowService;
+
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
+    @Resource
+    private KnowledgeIngestService knowledgeIngestService;
+
+    @Resource
+    private RagRetrievalLogQueryService ragRetrievalLogService;
+
+    @Resource
+    private GenerationBuildRecordService generationBuildRecordService;
+
+    @Resource
+    private GenerationRepairRecordService generationRepairRecordService;
+
+    @Resource
+    private ToolCallRecordService toolCallRecordService;
+
+    @Override
+    public Long createGenerateTask(GenerationTaskCreateRequest request, User loginUser) {
+
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR, "请求参数为空");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        ThrowUtils.throwIf(request.getAppId() == null || request.getAppId() <= 0,
+                ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(StrUtil.isBlank(request.getMessage()),
+                ErrorCode.PARAMS_ERROR, "提示词不能为空");
+        ThrowUtils.throwIf(request.getMessage().length() > MAX_USER_PROMPT_LENGTH,
+                ErrorCode.PARAMS_ERROR, "提示词不能超过 1000 字");
+
+        QueryWrapper appQuery = QueryWrapper.create()
+                .eq("id", request.getAppId())
+                .eq("userId", loginUser.getId());
+
+        App app = appService.getOne(appQuery);
+        ThrowUtils.throwIf(app == null, ErrorCode.NO_AUTH_ERROR, "应用不存在或无权访问");
+
+        String codeGenType = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (codeGenTypeEnum == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用代码生成类型错误");
+        }
+
+        String modelPrompt = request.getMessage();
+        if (request.getAttachmentId() != null) {
+            PromptAttachment usableAttachment = promptAttachmentService.getUsableAttachment(
+                            request.getAttachmentId(),
+                            loginUser.getId(),
+                            app.getId()
+            );
+
+            String attachmentContent = usableAttachment.getContent();
+            ThrowUtils.throwIf(attachmentContent == null || attachmentContent.length() > MAX_ATTACHMENT_CONTENT_LENGTH,
+                    ErrorCode.PARAMS_ERROR, "附件提取文本不能超过 20000 字");
+
+            knowledgeIngestService.ingestAttachment(
+                    request.getAttachmentId(),
+                    app.getId(),
+                    loginUser
+            );
+        }
+        ThrowUtils.throwIf(modelPrompt.length() > MAX_MODEL_MESSAGE_LENGTH, ErrorCode.PARAMS_ERROR,
+                "输入模型的文本不能超过 22000 字");
+
+        GenerationTask generationTask = GenerationTask.builder()
+                .appId(app.getId())
+                .userId(loginUser.getId())
+                .attachmentId(request.getAttachmentId())
+                .taskType(GenerationTaskTypeEnum.GENERATE.getValue())
+                .status(GenerationTaskStatusEnum.PENDING.getValue())
+                .currentStep("pending")
+                .inputPrompt(request.getMessage())
+                .modelPrompt(modelPrompt)
+                .codeGenType(app.getCodeGenType())
+                .tokenUsage(0L)
+                .toolCallCount(0)
+                .build();
+
+        boolean saved = this.save(generationTask);
+        ThrowUtils.throwIf(!saved, ErrorCode.OPERATION_ERROR, "任务创建失败");
+
+        return generationTask.getId();
+    }
+
+    @Override
+    public GenerationTaskVO getTaskVO(Long taskId, User loginUser) {
+        GenerationTask task = getOwnedTask(taskId, loginUser);
+        return toVO(task);
+    }
+
+    @Override
+    public Flux<String> streamGenerateTask(Long taskId, User loginUser) {
+        // Flux.defer 有订阅者订阅时才执行，而不是在代码定义时就立即执行
+        return Flux.defer(() -> streamGenerateTaskNow(taskId, loginUser));
+    }
+
+    private Flux<String> streamGenerateTaskNow(Long taskId, User loginUser) {
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        GenerationTask task = this.getById(taskId);
+        ThrowUtils.throwIf(task == null, ErrorCode.NOT_FOUND_ERROR,
+                "请求的 task id 不存在");
+        ThrowUtils.throwIf(!Objects.equals(task.getUserId(), loginUser.getId()), ErrorCode.NO_AUTH_ERROR,
+                "该 task 不属于当前用户");
+        ThrowUtils.throwIf(!GenerationTaskStatusEnum.PENDING.getValue().equalsIgnoreCase(task.getStatus()),
+                ErrorCode.PARAMS_ERROR,
+                "请求的 task 状态不对");
+
+        String permitId = generationAppLockService.acquire(task.getAppId());
+
+        try {
+            updateTaskRunning(taskId);
+
+            chatHistoryService.addChatMessage(
+                    task.getAppId(),
+                    task.getInputPrompt(),
+                    ChatHistoryMessageTypeEnum.USER.getValue(),
+                    loginUser.getId(),
+                    task.getAttachmentId(),
+                    taskId
+            );
+
+            String codeGenType = task.getCodeGenType();
+            CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+            if (codeGenTypeEnum == null) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用代码生成类型错误");
+            }
+            MonitorContextHolder.setContext(
+                    MonitorContext.builder()
+                            .userId(loginUser.getId().toString())
+                            .appId(task.getAppId().toString())
+                            .taskId(taskId.toString())
+                            .build()
+            );
+            Flux<String> codeStream = generationWorkflowService.streamGenerate(
+                    new GenerationWorkflowRequest(
+                            task.getId(),
+                            task.getAppId(),
+                            task.getUserId(),
+                            task.getModelPrompt(),
+                            task.getInputPrompt(),
+                            codeGenTypeEnum,
+                            task.getAttachmentId()
+                    )
+            );
+
+            Long appId = task.getAppId();
+            Long attachmentId = task.getAttachmentId();
+            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser,
+                            codeGenTypeEnum, attachmentId, taskId)
+                    .doOnComplete(() -> updateTaskSuccess(taskId))
+                    .doOnError(e -> updateTaskFailed(taskId, e))
+                    .doFinally(
+                            signalType -> {
+                                if (signalType == SignalType.CANCEL) {
+                                    updateTaskCanceled(taskId, "客户端断开连接，生成任务已取消");
+                                }
+                                generationAppLockService.release(appId, permitId);
+                                MonitorContextHolder.clearContext();
+                            }
+                    );
+        } catch (RuntimeException | Error e) {
+            generationAppLockService.release(task.getAppId(), permitId);
+            MonitorContextHolder.clearContext();
+            updateTaskFailed(taskId, e);
+            throw e;
+        }
+    }
+
+    private void updateTaskSuccess(Long taskId) {
+        GenerationTask task = GenerationTask.builder()
+                .id(taskId)
+                .status(GenerationTaskStatusEnum.SUCCESS.getValue())
+                .endTime(LocalDateTime.now())
+                .currentStep("done")
+                .tokenUsage(estimateTokenUsageIfAbsent(taskId))
+                .build();
+
+        boolean updated = this.updateById(task);
+        if (!updated) {
+            log.warn("updateTaskSuccess 更新 generation_task 表失败，taskId={}", taskId);
+        }
+    }
+
+    /**
+     * 部分 OpenAI 兼容流式接口不会返回 TokenUsage。
+     * 如果监听器已经记录了精确值，这里不覆盖；否则使用 prompt 和最终 AI 回复做保守估算，保证看板不长期为 0。
+     */
+    private Long estimateTokenUsageIfAbsent(Long taskId) {
+        GenerationTask currentTask = this.getById(taskId);
+        if (currentTask == null) {
+            return null;
+        }
+        Long currentTokenUsage = currentTask.getTokenUsage();
+        if (currentTokenUsage != null && currentTokenUsage > 0) {
+            return null;
+        }
+        String aiResponse = getLatestAiResponse(taskId, currentTask);
+        long estimatedTokenUsage = estimateTokenCount(currentTask.getModelPrompt())
+                + estimateTokenCount(aiResponse);
+        if (estimatedTokenUsage > 0) {
+            log.info("未获取到模型真实 TokenUsage，使用估算 token 写入任务: taskId={}, estimatedTokenUsage={}",
+                    taskId, estimatedTokenUsage);
+        }
+        return estimatedTokenUsage > 0 ? estimatedTokenUsage : null;
+    }
+
+    private String getLatestAiResponse(Long taskId, GenerationTask task) {
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .eq("taskId", taskId)
+                .eq("appId", task.getAppId())
+                .eq("userId", task.getUserId())
+                .eq("messageType", ChatHistoryMessageTypeEnum.AI.getValue())
+                .orderBy("createTime", false)
+                .limit(1);
+        ChatHistory chatHistory = chatHistoryService.getOne(queryWrapper);
+        return chatHistory == null ? null : chatHistory.getMessage();
+    }
+
+    private long estimateTokenCount(String text) {
+        if (StrUtil.isBlank(text)) {
+            return 0;
+        }
+        long cjkCharCount = 0;
+        long otherCharCount = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (Character.isWhitespace(ch)) {
+                continue;
+            }
+            Character.UnicodeScript script = Character.UnicodeScript.of(ch);
+            if (Character.UnicodeScript.HAN.equals(script)
+                    || Character.UnicodeScript.HIRAGANA.equals(script)
+                    || Character.UnicodeScript.KATAKANA.equals(script)
+                    || Character.UnicodeScript.HANGUL.equals(script)) {
+                cjkCharCount++;
+            } else {
+                otherCharCount++;
+            }
+        }
+        long estimated = cjkCharCount + (long) Math.ceil(otherCharCount / 4.0);
+        return Math.max(1, estimated);
+    }
+
+    private void updateTaskFailed(Long taskId, Throwable e) {
+        String errorMessage = e.getMessage();
+        if (StrUtil.isBlank(errorMessage)) {
+            errorMessage = e.getClass().getSimpleName();
+        }
+        GenerationTask task = GenerationTask.builder()
+                .id(taskId)
+                .status(GenerationTaskStatusEnum.FAILED.getValue())
+                .endTime(LocalDateTime.now())
+                .currentStep("failed")
+                .errorMessage(StrUtil.subPre(errorMessage, 2000))
+                .build();
+
+        boolean updated = this.updateById(task);
+        if (!updated) {
+            log.warn("updateTaskFailed 更新 generation_task 表失败，taskId={}", taskId);
+        }
+    }
+
+    private void updateTaskCanceled(Long taskId, String reason) {
+        GenerationTask task = GenerationTask.builder()
+                .id(taskId)
+                .status(GenerationTaskStatusEnum.CANCELED.getValue())
+                .endTime(LocalDateTime.now())
+                .currentStep("canceled")
+                .errorMessage(reason)
+                .build();
+
+        boolean updated = this.updateById(task);
+        if (!updated) {
+            log.warn("updateTaskCanceled 更新 generation_task 表失败，taskId={}", taskId);
+        }
+    }
+
+    private void updateTaskRunning(Long taskId) {
+        GenerationTask updateTask = GenerationTask.builder()
+                .id(taskId)
+                .status(GenerationTaskStatusEnum.RUNNING.getValue())
+                .currentStep("prepare_context")
+                .startTime(LocalDateTime.now())
+                .build();
+
+        boolean updated = this.updateById(updateTask);
+        ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR,
+                "updateTaskRunning 更新 generation_task 表失败");
+    }
+
+    @Override
+    public Boolean cancelTask(Long taskId, User loginUser) {
+        GenerationTask task = getOwnedTask(taskId, loginUser);
+        if (GenerationTaskStatusEnum.PENDING.getValue().equals(task.getStatus())) {
+            GenerationTask updateTask = GenerationTask.builder()
+                    .id(taskId)
+                    .status(GenerationTaskStatusEnum.CANCELED.getValue())
+                    .currentStep("canceled")
+                    .endTime(LocalDateTime.now())
+                    .build();
+            boolean updated = this.updateById(updateTask);
+            ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "取消任务失败");
+            return true;
+        }
+        ThrowUtils.throwIf(GenerationTaskStatusEnum.RUNNING.getValue().equals(task.getStatus()),
+                ErrorCode.OPERATION_ERROR, "暂不支持取消执行中的任务");
+        return false;
+    }
+
+    private GenerationTask getOwnedTask(Long taskId, User loginUser) {
+        ThrowUtils.throwIf(taskId == null || taskId <= 0, ErrorCode.PARAMS_ERROR, "任务 ID 错误");
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+
+        GenerationTask task = this.getById(taskId);
+        ThrowUtils.throwIf(task == null, ErrorCode.NOT_FOUND_ERROR, "任务不存在");
+        ThrowUtils.throwIf(!Objects.equals(task.getUserId(), loginUser.getId()),
+                ErrorCode.NO_AUTH_ERROR, "无权访问该任务");
+        return task;
+    }
+
+    private GenerationTaskVO toVO(GenerationTask task) {
+        GenerationTaskVO vo = new GenerationTaskVO();
+        BeanUtil.copyProperties(task, vo);
+        RagRetrievalVO ragRetrievalVO = ragRetrievalLogService.getByTaskId(task.getId(), task.getAppId(), task.getUserId());
+        vo.setRagRetrieval(ragRetrievalVO);
+        GenerationBuildRecord buildRecord = generationBuildRecordService.getLatestByTaskId(task.getId());
+        if (buildRecord != null) {
+            GenerationBuildRecordVO buildVO = new GenerationBuildRecordVO();
+            BeanUtil.copyProperties(buildRecord, buildVO);
+            buildVO.setArtifactPath(toRelativeArtifactPath(buildRecord.getArtifactPath()));
+            vo.setLatestBuild(buildVO);
+        }
+        vo.setRepairs(generationRepairRecordService.listByTaskId(task.getId()));
+        vo.setToolCalls(toolCallRecordService.listByTaskId(task.getId()));
+        vo.setToolCallCount(vo.getToolCalls().size());
+        return vo;
+    }
+
+    private String toRelativeArtifactPath(String artifactPath) {
+        if (StrUtil.isBlank(artifactPath)) {
+            return null;
+        }
+        try {
+            java.nio.file.Path root = java.nio.file.Path.of(
+                    AppConstant.CODE_OUTPUT_ROOT_DIR)
+                    .toAbsolutePath().normalize();
+            java.nio.file.Path artifact = java.nio.file.Path.of(artifactPath)
+                    .toAbsolutePath().normalize();
+            return artifact.startsWith(root) ? root.relativize(artifact).toString() : null;
+        } catch (RuntimeException e) {
+            log.warn("构建产物路径转换失败，artifactPath={}", StrUtil.subPre(artifactPath, 128));
+            return null;
+        }
+    }
+}

@@ -1,13 +1,13 @@
-# 数据库初始化
+-- Zero Logic 完整数据库结构
+-- 用于从空数据库初始化；现有数据库升级应使用独立的版本化迁移工具。
 
 -- 创建库
-create database if not exists zero_logic_db;
+create database if not exists zero_logic_db
+    default character set utf8mb4
+    collate utf8mb4_unicode_ci;
 
 -- 切换库
 use zero_logic_db;
-
--- 用户表
--- 以下是建表语句
 
 -- 用户表
 create table if not exists user
@@ -46,7 +46,8 @@ create table if not exists app
     initAttachmentId bigint null comment '初始化附件ID',
     UNIQUE KEY uk_deployKey (deployKey), -- 确保部署标识唯一
     INDEX idx_appName (appName),         -- 提升基于应用名称的查询性能
-    INDEX idx_userId (userId)            -- 提升基于用户 ID 的查询性能
+    INDEX idx_userId (userId),           -- 提升基于用户 ID 的查询性能
+    INDEX idx_priority_createTime (priority, createTime)
 ) comment '应用' collate = utf8mb4_unicode_ci;
 
 -- 对话历史表
@@ -211,18 +212,18 @@ CREATE TABLE IF NOT EXISTS generation_build_record (
 
 CREATE TABLE IF NOT EXISTS generation_repair_record (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    taskId bigint NOT NULL,
-    appId bigint NOT NULL,
-    userId bigint NOT NULL,
-    repairAttempt int NOT NULL,
-    sourceBuildRecordId bigint NOT NULL,
-    status varchar(32) NOT NULL,
-    errorSummary text NULL,
-    suspectedFiles text NULL,
-    changedFiles text NULL,
-    aiResponse text NULL,
-    errorMessage varchar(2048) NULL,
-    durationMs bigint NOT NULL DEFAULT 0,
+    taskId bigint NOT NULL COMMENT '生成任务 ID',
+    appId bigint NOT NULL COMMENT '应用 ID',
+    userId bigint NOT NULL COMMENT '用户 ID',
+    repairAttempt int NOT NULL COMMENT '修复轮次',
+    sourceBuildRecordId bigint NOT NULL COMMENT '失败构建记录 ID',
+    status varchar(32) NOT NULL COMMENT 'running/success/failed/timeout',
+    errorSummary text NULL COMMENT '规范化后的构建错误摘要',
+    suspectedFiles text NULL COMMENT '疑似问题文件 JSON',
+    changedFiles text NULL COMMENT '变更文件 JSON',
+    aiResponse text NULL COMMENT '修复 Agent 响应',
+    errorMessage varchar(2048) NULL COMMENT '修复执行错误',
+    durationMs bigint NOT NULL DEFAULT 0 COMMENT '修复耗时（毫秒）',
     createTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updateTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     isDelete tinyint NOT NULL DEFAULT 0,
@@ -301,5 +302,3 @@ CREATE TABLE IF NOT EXISTS deploy_record (
     INDEX idx_status (status),
     INDEX idx_createTime (createTime)
 );
-
-CREATE INDEX idx_priority_createTime ON app(priority, createTime);

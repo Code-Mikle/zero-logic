@@ -1,0 +1,21 @@
+package com.mikle.zerologic.app.deployment.service;
+
+import com.mikle.zerologic.app.deployment.model.entity.DeployRecord;
+import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
+import com.mybatisflex.core.service.IService;
+
+import java.util.List;
+
+public interface DeployRecordService extends IService<DeployRecord> {
+
+    DeployRecord createRunning(Long appId, Long userId, Long versionId,
+                               String deployKey, String deployPath, String deployType);
+
+    void finishSuccess(Long recordId, String deployUrl);
+
+    void finishFailed(Long recordId, String errorMessage);
+
+    int physicalDeleteByVersionIds(Long appId, Long userId, List<Long> versionIds);
+
+    List<DeployRecordVO> listByAppId(Long appId, Long userId);
+}

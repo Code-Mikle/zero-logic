@@ -1,7 +1,10 @@
 ### CUSTOM ###
 application-local.yml
 application-prod.yml
-tmp
+
+code_deploy
+code_output
+project_versions
 
 resources/application-local.yml
 resources/application-prod.yml
@@ -25,7 +28,6 @@ zero-logic-frontend/README.md
 *.bak
 logs/
 uploads/
-tmp/
 
 #FILE_UPLOAD_FEATURE_DESIGN.md
 #ARCHITECTURE_REVIEW.md
