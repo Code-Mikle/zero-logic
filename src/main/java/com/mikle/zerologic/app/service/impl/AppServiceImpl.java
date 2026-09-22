@@ -20,15 +20,12 @@ import com.mikle.zerologic.knowledge.document.service.KnowledgeDocumentService;
 import com.mikle.zerologic.knowledge.embedding.service.KnowledgeEmbeddingService;
 import com.mikle.zerologic.knowledge.retrieval.service.RagRetrievalLogService;
 import com.mikle.zerologic.user.service.UserService;
-import com.mikle.zerologic.generation.workflow.model.GenerationWorkflowRequest;
-import com.mikle.zerologic.generation.workflow.service.GenerationWorkflowService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGenTypeRoutingService;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGenTypeRoutingServiceFactory;
 import com.mikle.zerologic.app.constant.AppConstant;
 import com.mikle.zerologic.app.version.archive.ProjectVersionArchiver;
-import com.mikle.zerologic.generation.stream.handler.StreamHandlerExecutor;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.exception.ThrowUtils;
@@ -40,7 +37,6 @@ import com.mikle.zerologic.app.model.entity.App;
 import com.mikle.zerologic.app.deployment.model.entity.DeployRecord;
 import com.mikle.zerologic.app.version.model.entity.ProjectVersion;
 import com.mikle.zerologic.user.model.entity.User;
-import com.mikle.zerologic.conversation.model.enums.ChatHistoryMessageTypeEnum;
 import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
 import com.mikle.zerologic.app.deployment.model.enums.DeployTypeEnum;
 import com.mikle.zerologic.app.model.vo.AppVO;
@@ -48,14 +44,11 @@ import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
 import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import com.mikle.zerologic.app.version.model.vo.ProjectVersionVO;
 import com.mikle.zerologic.user.model.vo.UserVO;
-import com.mikle.zerologic.generation.monitoring.MonitorContext;
-import com.mikle.zerologic.generation.monitoring.MonitorContextHolder;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.Serializable;
@@ -80,13 +73,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private PromptAttachmentService promptAttachmentService;
 
     @Resource
-    private GenerationWorkflowService generationWorkflowService;
-
-    @Resource
     private ChatHistoryService chatHistoryService;
-
-    @Resource
-    private StreamHandlerExecutor streamHandlerExecutor;
 
     @Resource
     private ProjectVersionService projectVersionService;
@@ -129,70 +116,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private KnowledgeDocumentService knowledgeDocumentService;
-
-    @Override
-    public Flux<String> chatToGenCode(Long appId, String message, String displayMessage, User loginUser, Long attachmentId) {
-        // 1. 参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
-        // 2. 查询应用信息
-        App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
-        // 3. 权限校验，仅本人可以和自己的应用对话
-        if (!app.getUserId().equals(loginUser.getId())) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
-        }
-        // 4. 获取应用的代码生成类型
-        String codeGenType = app.getCodeGenType();
-        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
-        if (codeGenTypeEnum == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "应用代码生成类型错误");
-        }
-
-        String permitId = generationAppLockService.acquire(appId);
-
-        try {
-            // 5. 在调用 AI 前，先保存用户消息到数据库中
-            chatHistoryService.addChatMessage(appId, displayMessage,
-                    ChatHistoryMessageTypeEnum.USER.getValue(),
-                    loginUser.getId(),
-                    attachmentId,
-                    null
-            );
-            // 6. 设置监控上下文（用户 ID 和应用 ID）
-            MonitorContextHolder.setContext(
-                    MonitorContext.builder()
-                            .userId(loginUser.getId().toString())
-                            .appId(appId.toString())
-                            .build()
-            );
-            // 7. 调用 AI 生成代码（流式）
-            Flux<String> codeStream = generationWorkflowService.streamGenerate(
-                    new GenerationWorkflowRequest(
-                            null,
-                            appId,
-                            loginUser.getId(),
-                            message,
-                            displayMessage,
-                            codeGenTypeEnum,
-                            attachmentId
-                    )
-            );
-            // 8. 收集 AI 响应的内容，并且在完成后保存记录到对话历史
-            return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser,
-                            codeGenTypeEnum, attachmentId, null)
-                    .doFinally(
-                            signalType -> {
-                                generationAppLockService.release(appId, permitId);
-                                MonitorContextHolder.clearContext();
-                            }
-                    );
-        } catch (RuntimeException | Error e) {
-            generationAppLockService.release(appId, permitId);
-            MonitorContextHolder.clearContext();
-            throw e;
-        }
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

@@ -9,7 +9,6 @@ import com.mikle.zerologic.user.model.entity.User;
 import com.mikle.zerologic.app.model.vo.AppVO;
 import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
 import com.mikle.zerologic.app.version.model.vo.ProjectVersionVO;
-import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -18,17 +17,6 @@ import java.util.List;
  * @author <a href="https://github.com/Code-Mikle">Mikle</a>
  */
 public interface AppService extends IService<App> {
-
-    /**
-     * 通过对话生成应用代码。
-     * 该方法服务于旧版 /app/chat/gen/code 兼容接口；新主流程使用 GenerationTaskService。
-     *
-     * @param appId     应用 ID
-     * @param message   提示词
-     * @param loginUser 登录用户
-     * @return
-     */
-    Flux<String> chatToGenCode(Long appId, String message, String displayMessage, User loginUser, Long attachmentId);
 
     /**
      * 创建应用

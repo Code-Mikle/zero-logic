@@ -161,11 +161,6 @@ declare namespace API {
     lastCreateTime?: string
   }
 
-  type chatToGenCodeParams = {
-    appId: number
-    message: string
-  }
-
   type DeleteRequest = {
     id?: number
   }
@@ -269,8 +264,6 @@ declare namespace API {
     totalRow?: number
     optimizeCountQuery?: boolean
   }
-
-  type ServerSentEventString = true
 
   type serveStaticResourceParams = {
     deployKey: string
