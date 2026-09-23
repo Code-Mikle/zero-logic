@@ -70,6 +70,7 @@ create table if not exists chat_history
     INDEX idx_taskId (taskId)
 ) comment '对话历史' collate = utf8mb4_unicode_ci;
 
+-- 用户上传的附件
 CREATE TABLE IF NOT EXISTS prompt_attachment (
                                    id bigint AUTO_INCREMENT PRIMARY KEY,
                                    fileName varchar(256) NOT NULL,
@@ -88,7 +89,7 @@ CREATE TABLE IF NOT EXISTS prompt_attachment (
                                    INDEX idx_status_createTime (status, createTime)
 );
 
-
+-- 生成任务
 CREATE TABLE IF NOT EXISTS generation_task (
          id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
          appId bigint NOT NULL COMMENT '应用 ID',
@@ -115,6 +116,7 @@ CREATE TABLE IF NOT EXISTS generation_task (
          INDEX idx_userId_createTime (userId, createTime)
 );
 
+-- RAG 文档
 CREATE TABLE IF NOT EXISTS knowledge_document (
                                     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                     appId bigint NOT NULL COMMENT '应用 ID',
@@ -134,6 +136,7 @@ CREATE TABLE IF NOT EXISTS knowledge_document (
                                     INDEX idx_contentHash (contentHash)
 );
 
+-- 文档切片
 CREATE TABLE IF NOT EXISTS knowledge_chunk (
                                  id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                  documentId bigint NOT NULL COMMENT '文档 ID',
@@ -152,6 +155,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunk (
                                  INDEX idx_userId (userId)
 );
 
+-- 切片向量
 CREATE TABLE IF NOT EXISTS knowledge_embedding (
                                      id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                      chunkId bigint NOT NULL COMMENT 'chunk ID',
@@ -168,6 +172,7 @@ CREATE TABLE IF NOT EXISTS knowledge_embedding (
                                      INDEX idx_userId (userId)
 );
 
+-- RAG 检索日志
 CREATE TABLE IF NOT EXISTS rag_retrieval_log (
                                    id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                    taskId bigint NULL COMMENT '任务 ID',
@@ -187,6 +192,7 @@ CREATE TABLE IF NOT EXISTS rag_retrieval_log (
                                    INDEX idx_createTime (createTime)
 );
 
+-- 构建记录
 CREATE TABLE IF NOT EXISTS generation_build_record (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     taskId bigint NOT NULL COMMENT '生成任务 ID',
@@ -210,6 +216,7 @@ CREATE TABLE IF NOT EXISTS generation_build_record (
     INDEX idx_appId (appId)
 );
 
+-- 自动修复记录
 CREATE TABLE IF NOT EXISTS generation_repair_record (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     taskId bigint NOT NULL COMMENT '生成任务 ID',
@@ -232,7 +239,7 @@ CREATE TABLE IF NOT EXISTS generation_repair_record (
     INDEX idx_appId (appId)
 );
 
-
+-- 工具调用记录
 CREATE TABLE IF NOT EXISTS tool_call_record (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     taskId bigint NULL COMMENT '生成任务 ID',
@@ -258,6 +265,7 @@ CREATE TABLE IF NOT EXISTS tool_call_record (
     INDEX idx_createTime (createTime)
 );
 
+-- 项目版本
 CREATE TABLE IF NOT EXISTS project_version (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     appId bigint NOT NULL COMMENT '应用 ID',
@@ -281,6 +289,7 @@ CREATE TABLE IF NOT EXISTS project_version (
     INDEX idx_createTime (createTime)
 );
 
+-- 部署记录
 CREATE TABLE IF NOT EXISTS deploy_record (
     id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
     appId bigint NOT NULL COMMENT '应用 ID',
