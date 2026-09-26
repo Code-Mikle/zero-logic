@@ -20,6 +20,7 @@ import com.mikle.zerologic.knowledge.document.service.KnowledgeDocumentService;
 import com.mikle.zerologic.knowledge.embedding.service.KnowledgeEmbeddingService;
 import com.mikle.zerologic.knowledge.retrieval.service.RagRetrievalLogService;
 import com.mikle.zerologic.user.service.UserService;
+import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGenTypeRoutingService;
@@ -31,8 +32,10 @@ import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.exception.ThrowUtils;
 import com.mikle.zerologic.app.mapper.AppMapper;
 import com.mikle.zerologic.generation.task.mapper.GenerationTaskMapper;
+import com.mikle.zerologic.app.model.dto.AdminAppQueryRequest;
 import com.mikle.zerologic.app.model.dto.AppAddRequest;
-import com.mikle.zerologic.app.model.dto.AppQueryRequest;
+import com.mikle.zerologic.app.model.dto.GoodAppPageQueryRequest;
+import com.mikle.zerologic.app.model.dto.MyAppQueryRequest;
 import com.mikle.zerologic.app.model.entity.App;
 import com.mikle.zerologic.app.deployment.model.entity.DeployRecord;
 import com.mikle.zerologic.app.version.model.entity.ProjectVersion;
@@ -41,12 +44,18 @@ import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
 import com.mikle.zerologic.app.deployment.model.enums.DeployTypeEnum;
 import com.mikle.zerologic.app.model.vo.AppVO;
 import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
+import com.mikle.zerologic.app.model.vo.GoodAppVO;
+import com.mikle.zerologic.knowledge.attachment.model.entity.PromptAttachment;
 import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import com.mikle.zerologic.app.version.model.vo.ProjectVersionVO;
 import com.mikle.zerologic.user.model.vo.UserVO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,11 +72,24 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
+    private static final int MAX_MY_APP_PAGE_SIZE = 20;
+
+    private static final int MAX_ADMIN_APP_PAGE_SIZE = 100;
+
+    private static final int MAX_GOOD_APP_PAGE_SIZE = 20;
+
+    private static final Set<String> APP_SORT_FIELDS = Set.of(
+            "id", "appName", "priority", "deployedTime", "createTime", "updateTime"
+    );
+
     @Value("${code.deploy-host:http://localhost}")
     private String deployHost;
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private CacheManager cacheManager;
 
     @Resource
     private PromptAttachmentService promptAttachmentService;
@@ -159,7 +181,33 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         return app.getId();
     }
 
+    /**
+     * 删除应用时，关联删除对话历史
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean removeById(Serializable id) {
+        if (id == null) {
+            return false;
+        }
+        long appId = Long.parseLong(id.toString());
+        if (appId <= 0) {
+            return false;
+        }
+        App app = this.getById(appId);
+        if (app == null) {
+            return false;
+        }
+        deleteRelatedRecords(appId);
+        boolean removed = super.removeById(id);
+        if (removed) {
+            deleteGeneratedFiles(app);
+        }
+        return removed;
+    }
+
+    @Override
+    @CacheEvict(value = AppConstant.GOOD_APP_CACHE_NAME, allEntries = true)
     public String deployApp(Long appId, User loginUser) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
@@ -176,6 +224,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     @Override
+    @CacheEvict(value = AppConstant.GOOD_APP_CACHE_NAME, allEntries = true)
     public String deployVersion(Long appId, Long versionId, User loginUser) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
         ThrowUtils.throwIf(versionId == null || versionId <= 0, ErrorCode.PARAMS_ERROR, "版本 ID 错误");
@@ -193,6 +242,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     @Override
+    @CacheEvict(value = AppConstant.GOOD_APP_CACHE_NAME, allEntries = true)
     public String rollbackVersion(Long appId, Long versionId, User loginUser) {
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
         ThrowUtils.throwIf(versionId == null || versionId <= 0, ErrorCode.PARAMS_ERROR, "版本 ID 错误");
@@ -335,7 +385,15 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             updateApp.setCover(screenshotUrl);
             boolean updated = this.updateById(updateApp);
             ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+            clearGoodAppCache();
         });
+    }
+
+    private void clearGoodAppCache() {
+        Cache cache = cacheManager.getCache(AppConstant.GOOD_APP_CACHE_NAME);
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     @Override
@@ -363,73 +421,171 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (CollUtil.isEmpty(appList)) {
             return new ArrayList<>();
         }
-        // 批量获取用户信息，避免 N+1 查询问题
-        Set<Long> userIds = appList.stream()
-                .map(App::getUserId)
+        // 批量获取关联数据，避免逐条查询产生 N+1 问题。
+        Map<Long, UserVO> userVOMap = getUserVOMap(appList);
+
+        Set<Long> attachmentIds = appList.stream()
+                .map(App::getInitAttachmentId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, userService::getUserVO));
+        Map<Long, PromptAttachmentVO> attachmentVOMap = attachmentIds.isEmpty()
+                ? Collections.emptyMap()
+                : promptAttachmentService.listByIds(attachmentIds).stream()
+                .collect(Collectors.toMap(
+                        PromptAttachment::getId,
+                        this::toPromptAttachmentVO
+                ));
+
         return appList.stream().map(app -> {
-            AppVO appVO = getAppVO(app);
-            UserVO userVO = userVOMap.get(app.getUserId());
-            appVO.setUser(userVO);
+            AppVO appVO = new AppVO();
+            BeanUtil.copyProperties(app, appVO);
+            appVO.setUser(userVOMap.get(app.getUserId()));
+            appVO.setPromptAttachmentVO(attachmentVOMap.get(app.getInitAttachmentId()));
             return appVO;
         }).collect(Collectors.toList());
     }
 
-    @Override
-    public QueryWrapper getQueryWrapper(AppQueryRequest appQueryRequest) {
-        if (appQueryRequest == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+    private Map<Long, UserVO> getUserVOMap(List<App> appList) {
+        Set<Long> userIds = appList.stream()
+                .map(App::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return Collections.emptyMap();
         }
-        Long id = appQueryRequest.getId();
-        String appName = appQueryRequest.getAppName();
-        String cover = appQueryRequest.getCover();
-        String initPrompt = appQueryRequest.getInitPrompt();
-        String codeGenType = appQueryRequest.getCodeGenType();
-        String deployKey = appQueryRequest.getDeployKey();
-        Integer priority = appQueryRequest.getPriority();
-        Long userId = appQueryRequest.getUserId();
-        String sortField = appQueryRequest.getSortField();
-        String sortOrder = appQueryRequest.getSortOrder();
-        return QueryWrapper.create()
-                .eq("id", id)
-                .like("appName", appName)
-                .like("cover", cover)
-                .like("initPrompt", initPrompt)
-                .eq("codeGenType", codeGenType)
-                .eq("deployKey", deployKey)
-                .eq("priority", priority)
-                .eq("userId", userId)
-                .orderBy(sortField, "ascend".equals(sortOrder));
+        return userService.listByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, userService::getUserVO));
     }
 
-    /**
-     * 删除应用时，关联删除对话历史
-     *
-     * @param id
-     * @return
-     */
+    private PromptAttachmentVO toPromptAttachmentVO(PromptAttachment attachment) {
+        PromptAttachmentVO attachmentVO = new PromptAttachmentVO();
+        BeanUtil.copyProperties(attachment, attachmentVO);
+        return attachmentVO;
+    }
+
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean removeById(Serializable id) {
-        if (id == null) {
+    public Page<AppVO> pageMyApps(MyAppQueryRequest queryRequest, Long userId) {
+        ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR, "查询参数为空");
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.NOT_LOGIN_ERROR);
+
+        int pageNum = queryRequest.getPageNum();
+        int pageSize = queryRequest.getPageSize();
+        ThrowUtils.throwIf(pageNum <= 0, ErrorCode.PARAMS_ERROR, "页码必须大于 0");
+        ThrowUtils.throwIf(pageSize <= 0 || pageSize > MAX_MY_APP_PAGE_SIZE,
+                ErrorCode.PARAMS_ERROR, "每页查询数量必须在 1 到 20 之间");
+
+        String sortField = StrUtil.blankToDefault(queryRequest.getSortField(), "createTime");
+        ThrowUtils.throwIf(!APP_SORT_FIELDS.contains(sortField),
+                ErrorCode.PARAMS_ERROR, "不支持的排序字段");
+        boolean ascending = parseSortDirection(queryRequest.getSortOrder());
+
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .eq("userId", userId)
+                .like("appName", queryRequest.getAppName(), StrUtil.isNotBlank(queryRequest.getAppName()))
+                .eq("codeGenType", queryRequest.getCodeGenType(),
+                        StrUtil.isNotBlank(queryRequest.getCodeGenType()))
+                .orderBy(sortField, ascending);
+        Page<App> appPage = this.page(Page.of(pageNum, pageSize), queryWrapper);
+
+        Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        appVOPage.setRecords(getAppVOList(appPage.getRecords()));
+        return appVOPage;
+    }
+
+    @Override
+    public Page<AppVO> pageAdminApps(AdminAppQueryRequest queryRequest) {
+        ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR, "查询参数为空");
+
+        int pageNum = queryRequest.getPageNum();
+        int pageSize = queryRequest.getPageSize();
+        ThrowUtils.throwIf(pageNum <= 0, ErrorCode.PARAMS_ERROR, "页码必须大于 0");
+        ThrowUtils.throwIf(pageSize <= 0 || pageSize > MAX_ADMIN_APP_PAGE_SIZE,
+                ErrorCode.PARAMS_ERROR, "每页查询数量必须在 1 到 100 之间");
+
+        String sortField = StrUtil.blankToDefault(queryRequest.getSortField(), "createTime");
+        ThrowUtils.throwIf(!APP_SORT_FIELDS.contains(sortField),
+                ErrorCode.PARAMS_ERROR, "不支持的排序字段");
+        boolean ascending = parseSortDirection(queryRequest.getSortOrder());
+
+        QueryWrapper queryWrapper = buildAdminQueryWrapper(queryRequest, sortField, ascending);
+        Page<App> appPage = this.page(Page.of(pageNum, pageSize), queryWrapper);
+
+        Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        appVOPage.setRecords(getAppVOList(appPage.getRecords()));
+        return appVOPage;
+    }
+
+    @Override
+    @Cacheable(
+            value = AppConstant.GOOD_APP_CACHE_NAME,
+            key = "#queryRequest.pageNum + ':' + #queryRequest.pageSize",
+            condition = "#queryRequest != null && #queryRequest.pageNum <= 10",
+            sync = true
+    )
+    public Page<GoodAppVO> pageGoodApps(GoodAppPageQueryRequest queryRequest) {
+        ThrowUtils.throwIf(queryRequest == null, ErrorCode.PARAMS_ERROR, "查询参数为空");
+
+        int pageNum = queryRequest.getPageNum();
+        int pageSize = queryRequest.getPageSize();
+        ThrowUtils.throwIf(pageNum <= 0, ErrorCode.PARAMS_ERROR, "页码必须大于 0");
+        ThrowUtils.throwIf(pageSize <= 0 || pageSize > MAX_GOOD_APP_PAGE_SIZE,
+                ErrorCode.PARAMS_ERROR, "每页查询数量必须在 1 到 20 之间");
+
+        Page<App> appPage = this.page(
+                Page.of(pageNum, pageSize),
+                buildGoodAppQueryWrapper()
+        );
+        Page<GoodAppVO> goodAppPage = new Page<>(pageNum, pageSize, appPage.getTotalRow());
+        goodAppPage.setRecords(getGoodAppVOList(appPage.getRecords()));
+        return goodAppPage;
+    }
+
+    QueryWrapper buildGoodAppQueryWrapper() {
+        return QueryWrapper.create()
+                .select("id", "appName", "cover", "codeGenType", "deployKey", "userId")
+                .eq("priority", AppConstant.GOOD_APP_PRIORITY)
+                .orderBy("createTime", false)
+                .orderBy("id", false);
+    }
+
+    List<GoodAppVO> getGoodAppVOList(List<App> appList) {
+        if (CollUtil.isEmpty(appList)) {
+            return new ArrayList<>();
+        }
+        Map<Long, UserVO> userVOMap = getUserVOMap(appList);
+        return appList.stream().map(app -> {
+            GoodAppVO goodAppVO = new GoodAppVO();
+            BeanUtil.copyProperties(app, goodAppVO);
+            goodAppVO.setUser(userVOMap.get(app.getUserId()));
+            return goodAppVO;
+        }).collect(Collectors.toList());
+    }
+
+    QueryWrapper buildAdminQueryWrapper(AdminAppQueryRequest queryRequest,
+                                        String sortField,
+                                        boolean ascending) {
+        return QueryWrapper.create()
+                .eq("id", queryRequest.getId(), queryRequest.getId() != null)
+                .like("appName", queryRequest.getAppName(), StrUtil.isNotBlank(queryRequest.getAppName()))
+                .eq("codeGenType", queryRequest.getCodeGenType(),
+                        StrUtil.isNotBlank(queryRequest.getCodeGenType()))
+                .eq("deployKey", queryRequest.getDeployKey(), StrUtil.isNotBlank(queryRequest.getDeployKey()))
+                .eq("priority", queryRequest.getPriority(), queryRequest.getPriority() != null)
+                .eq("userId", queryRequest.getUserId(), queryRequest.getUserId() != null)
+                .orderBy(sortField, ascending);
+    }
+
+    private boolean parseSortDirection(String sortOrder) {
+        if (StrUtil.isBlank(sortOrder)
+                || "desc".equalsIgnoreCase(sortOrder)
+                || "descend".equalsIgnoreCase(sortOrder)) {
             return false;
         }
-        long appId = Long.parseLong(id.toString());
-        if (appId <= 0) {
-            return false;
+        if ("asc".equalsIgnoreCase(sortOrder)
+                || "ascend".equalsIgnoreCase(sortOrder)) {
+            return true;
         }
-        App app = this.getById(appId);
-        if (app == null) {
-            return false;
-        }
-        deleteRelatedRecords(appId);
-        boolean removed = super.removeById(id);
-        if (removed) {
-            deleteGeneratedFiles(app);
-        }
-        return removed;
+        throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的排序方式");
     }
 
     private void deleteRelatedRecords(Long appId) {

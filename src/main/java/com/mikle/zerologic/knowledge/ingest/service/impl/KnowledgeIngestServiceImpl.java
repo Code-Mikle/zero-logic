@@ -53,6 +53,13 @@ public class KnowledgeIngestServiceImpl implements KnowledgeIngestService {
     @Resource
     private KnowledgeEmbeddingService knowledgeEmbeddingService;
 
+    /**
+     * 执行入库操作，即 解析 → 切片 → 向量化 → 保存
+     * @param attachmentId 附件 id
+     * @param appId 应用 id
+     * @param loginUser 登录的 user
+     * @return
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Long ingestAttachment(Long attachmentId, Long appId, User loginUser) {

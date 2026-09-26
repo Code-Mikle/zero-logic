@@ -1,12 +1,15 @@
 package com.mikle.zerologic.app.service;
 
-import com.mybatisflex.core.query.QueryWrapper;
+import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.service.IService;
+import com.mikle.zerologic.app.model.dto.AdminAppQueryRequest;
 import com.mikle.zerologic.app.model.dto.AppAddRequest;
-import com.mikle.zerologic.app.model.dto.AppQueryRequest;
+import com.mikle.zerologic.app.model.dto.GoodAppPageQueryRequest;
+import com.mikle.zerologic.app.model.dto.MyAppQueryRequest;
 import com.mikle.zerologic.app.model.entity.App;
 import com.mikle.zerologic.user.model.entity.User;
 import com.mikle.zerologic.app.model.vo.AppVO;
+import com.mikle.zerologic.app.model.vo.GoodAppVO;
 import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
 import com.mikle.zerologic.app.version.model.vo.ProjectVersionVO;
 
@@ -20,10 +23,6 @@ public interface AppService extends IService<App> {
 
     /**
      * 创建应用
-     *
-     * @param appAddRequest
-     * @param loginUser
-     * @return
      */
     Long createApp(AppAddRequest appAddRequest, User loginUser);
 
@@ -54,26 +53,27 @@ public interface AppService extends IService<App> {
 
     /**
      * 获取应用封装类
-     *
-     * @param app
-     * @return
      */
     AppVO getAppVO(App app);
 
     /**
      * 获取应用封装类列表
-     *
-     * @param appList
-     * @return
      */
     List<AppVO> getAppVOList(List<App> appList);
 
     /**
-     * 构造应用查询条件
-     *
-     * @param appQueryRequest
-     * @return
+     * 分页查询当前用户创建的应用。
      */
-    QueryWrapper getQueryWrapper(AppQueryRequest appQueryRequest);
+    Page<AppVO> pageMyApps(MyAppQueryRequest queryRequest, Long userId);
+
+    /**
+     * 管理员分页查询应用。
+     */
+    Page<AppVO> pageAdminApps(AdminAppQueryRequest queryRequest);
+
+    /**
+     * 分页查询首页精选应用。
+     */
+    Page<GoodAppVO> pageGoodApps(GoodAppPageQueryRequest queryRequest);
 
 }

@@ -21,7 +21,7 @@ import com.mikle.zerologic.conversation.service.ChatHistoryService;
 import java.time.LocalDateTime;
 
 /**
- * 对话历史 控制层。
+ * 对话历史 控制层
  */
 @RestController
 @RequestMapping("/chatHistory")
@@ -49,8 +49,6 @@ public class ChatHistoryController {
                                                                 HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Page<ChatHistoryVo> result = chatHistoryService.listAppChatHistoryByPage(appId, pageSize, lastCreateTime, loginUser);
-
-
 
         return ResultUtils.success(result);
     }

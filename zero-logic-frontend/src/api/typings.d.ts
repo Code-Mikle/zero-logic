@@ -20,19 +20,31 @@ declare namespace API {
     versionId?: number | string
   }
 
-  type AppQueryRequest = {
+  type AdminAppQueryRequest = {
     pageNum?: number
     pageSize?: number
     sortField?: string
     sortOrder?: string
     id?: number
     appName?: string
-    cover?: string
-    initPrompt?: string
     codeGenType?: string
     deployKey?: string
     priority?: number
     userId?: number
+  }
+
+  type GoodAppPageQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+  }
+
+  type MyAppQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    appName?: string
+    codeGenType?: string
   }
 
   type AppUpdateRequest = {
@@ -53,6 +65,15 @@ declare namespace API {
     createTime?: string
     updateTime?: string
     promptAttachmentVO?: promptAttachmentVO
+    user?: UserVO
+  }
+
+  type GoodAppVO = {
+    id?: number
+    appName?: string
+    cover?: string
+    codeGenType?: string
+    deployKey?: string
     user?: UserVO
   }
 
@@ -101,6 +122,12 @@ declare namespace API {
   type BaseResponsePageAppVO = {
     code?: number
     data?: PageAppVO
+    message?: string
+  }
+
+  type BaseResponsePageGoodAppVO = {
+    code?: number
+    data?: PageGoodAppVO
     message?: string
   }
 
@@ -167,10 +194,6 @@ declare namespace API {
 
   type downloadAppCodeParams = {
     appId: number
-  }
-
-  type getAppVOByIdByAdminParams = {
-    id: number
   }
 
   type getAppVOByIdParams = {
@@ -240,6 +263,15 @@ declare namespace API {
 
   type PageAppVO = {
     records?: AppVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
+  type PageGoodAppVO = {
+    records?: GoodAppVO[]
     pageNumber?: number
     pageSize?: number
     totalPage?: number

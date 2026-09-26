@@ -11,6 +11,11 @@ public interface AppConstant {
     Integer GOOD_APP_PRIORITY = 99;
 
     /**
+     * 精选应用分页缓存名称。
+     */
+    String GOOD_APP_CACHE_NAME = "good_app_page";
+
+    /**
      * 默认应用优先级
      */
     Integer DEFAULT_APP_PRIORITY = 0;

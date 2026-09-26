@@ -87,7 +87,7 @@ const myAppsPage = reactive({
 })
 
 // 精选应用数据
-const featuredApps = ref<API.AppVO[]>([])
+const featuredApps = ref<API.GoodAppVO[]>([])
 const featuredAppsPage = reactive({
   current: 1,
   pageSize: 6,
@@ -181,8 +181,6 @@ const loadFeaturedApps = async () => {
     const res = await listGoodAppVoByPage({
       pageNum: featuredAppsPage.current,
       pageSize: featuredAppsPage.pageSize,
-      sortField: 'createTime',
-      sortOrder: 'desc',
     })
 
     if (res.data.code === 0 && res.data.data) {

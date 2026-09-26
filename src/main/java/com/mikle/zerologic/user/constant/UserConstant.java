@@ -11,7 +11,6 @@ public interface UserConstant {
     String USER_LOGIN_STATE = "user_login";
 
     //  region 权限
-
     /**
      * 默认角色
      */
@@ -21,6 +20,5 @@ public interface UserConstant {
      * 管理员角色
      */
     String ADMIN_ROLE = "admin";
-    
     // endregion
 }

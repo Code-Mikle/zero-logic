@@ -30,9 +30,6 @@ public interface ChatHistoryService extends IService<ChatHistory> {
 
     /**
      * 根据应用 id 删除对话历史
-     *
-     * @param appId
-     * @return
      */
     boolean deleteByAppId(Long appId);
 

@@ -159,7 +159,7 @@ const data = ref<API.AppVO[]>([])
 const total = ref(0)
 
 // 搜索条件
-const searchParams = reactive<API.AppQueryRequest>({
+const searchParams = reactive<API.AdminAppQueryRequest>({
   pageNum: 1,
   pageSize: 10,
 })

@@ -32,7 +32,6 @@ import static com.mikle.zerologic.user.constant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 用户 服务层实现。
- * @author <a href="https://github.com/Code-Mikle">Mikle</a>
  */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
@@ -70,11 +69,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         boolean saveResult;
         try {
             saveResult = this.save(user);
-        } catch (RuntimeException e) {
-            if (isDuplicateKeyException(e)) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
-            }
-            throw e;
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
         }
         if (!saveResult) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "注册失败，数据库错误");
@@ -200,8 +196,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
         return QueryWrapper.create()
-                .eq("id", id) // where id = ${id}
-                .eq("userRole", userRole) // and userRole = ${userRole}
+                .eq("id", id)
+                .eq("userRole", userRole)
                 .like("userAccount", userAccount)
                 .like("userName", userName)
                 .like("userProfile", userProfile)
@@ -213,26 +209,5 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 盐值，混淆密码
         final String SALT = "mikle";
         return DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes(StandardCharsets.UTF_8));
-    }
-
-    private boolean isDuplicateKeyException(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            if (current instanceof DuplicateKeyException
-                    || current instanceof SQLIntegrityConstraintViolationException) {
-                return true;
-            }
-            String message = current.getMessage();
-            if (message != null) {
-                String lowerMessage = message.toLowerCase();
-                if (lowerMessage.contains("duplicate entry")
-                        || lowerMessage.contains("duplicate key")
-                        || lowerMessage.contains("uk_useraccount")) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 }
