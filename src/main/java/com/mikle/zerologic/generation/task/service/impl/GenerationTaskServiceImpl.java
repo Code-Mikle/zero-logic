@@ -34,6 +34,7 @@ import com.mikle.zerologic.generation.build.model.vo.GenerationBuildRecordVO;
 import com.mikle.zerologic.knowledge.retrieval.model.vo.RagRetrievalVO;
 import com.mikle.zerologic.generation.monitoring.MonitorContext;
 import com.mikle.zerologic.generation.monitoring.MonitorContextHolder;
+import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
 import com.mikle.zerologic.generation.workflow.model.GenerationWorkflowRequest;
 import com.mikle.zerologic.generation.workflow.service.GenerationWorkflowService;
 import com.mybatisflex.core.query.QueryWrapper;
@@ -66,6 +67,9 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ChatMemoryProviderService chatMemoryProviderService;
 
     @Resource
     private GenerationWorkflowService generationWorkflowService;
@@ -181,6 +185,9 @@ public class GenerationTaskServiceImpl extends ServiceImpl<GenerationTaskMapper,
 
         try {
             updateTaskRunning(taskId);
+
+            // 先恢复本轮之前的历史，再保存本轮消息，避免冷启动时当前请求被重复加入模型上下文
+            chatMemoryProviderService.getMemory(task.getAppId());
 
             chatHistoryService.addChatMessage(
                     task.getAppId(),

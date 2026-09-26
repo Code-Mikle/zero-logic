@@ -13,7 +13,7 @@
         >
           <a-select-option value="">全部</a-select-option>
           <a-select-option value="user">用户消息</a-select-option>
-          <a-select-option value="assistant">AI消息</a-select-option>
+          <a-select-option value="ai">AI消息</a-select-option>
         </a-select>
       </a-form-item>
       <a-form-item label="应用ID">
@@ -51,14 +51,9 @@
           {{ formatTime(record.createTime) }}
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-space>
-            <a-button type="primary" size="small" @click="viewAppChat(record.appId)">
-              查看对话
-            </a-button>
-            <a-popconfirm title="确定要删除这条消息吗？" @confirm="deleteMessage(record.id)">
-              <a-button danger size="small">删除</a-button>
-            </a-popconfirm>
-          </a-space>
+          <a-button type="primary" size="small" @click="viewAppChat(record.appId)">
+            查看对话
+          </a-button>
         </template>
       </template>
     </a-table>
@@ -179,21 +174,6 @@ const viewAppChat = (appId: number | undefined) => {
   }
 }
 
-// 删除消息
-const deleteMessage = async (id: number | undefined) => {
-  if (!id) return
-
-  try {
-    // 注意：这里需要后端提供删除对话历史的接口
-    // 目前先显示成功，实际实现需要调用删除接口
-    message.success('删除成功')
-    // 刷新数据
-    fetchData()
-  } catch (error) {
-    console.error('删除失败：', error)
-    message.error('删除失败')
-  }
-}
 </script>
 
 <style scoped>

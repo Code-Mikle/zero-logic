@@ -32,6 +32,7 @@ import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.exception.ThrowUtils;
 import com.mikle.zerologic.app.mapper.AppMapper;
 import com.mikle.zerologic.generation.task.mapper.GenerationTaskMapper;
+import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
 import com.mikle.zerologic.app.model.dto.AdminAppQueryRequest;
 import com.mikle.zerologic.app.model.dto.AppAddRequest;
 import com.mikle.zerologic.app.model.dto.GoodAppPageQueryRequest;
@@ -96,6 +97,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ChatMemoryProviderService chatMemoryProviderService;
 
     @Resource
     private ProjectVersionService projectVersionService;
@@ -201,6 +205,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         deleteRelatedRecords(appId);
         boolean removed = super.removeById(id);
         if (removed) {
+            safeRemove("chat_memory", () -> chatMemoryProviderService.clearMemory(appId));
             deleteGeneratedFiles(app);
         }
         return removed;

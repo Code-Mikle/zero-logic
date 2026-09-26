@@ -43,6 +43,10 @@
         <a-button v-if="isAdmin" block @click="router.push('/admin/appManage')">
           应用管理
         </a-button>
+
+        <a-button v-if="isAdmin" block @click="router.push('/admin/chatManage')">
+          对话管理
+        </a-button>
       </div>
     </div>
 

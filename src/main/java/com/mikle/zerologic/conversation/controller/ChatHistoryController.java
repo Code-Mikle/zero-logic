@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 @RequestMapping("/chatHistory")
 public class ChatHistoryController {
 
+    private static final int MAX_ADMIN_PAGE_SIZE = 50;
+
     @Resource
     private ChatHistoryService chatHistoryService;
 
@@ -65,6 +67,9 @@ public class ChatHistoryController {
         ThrowUtils.throwIf(chatHistoryQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageNum = chatHistoryQueryRequest.getPageNum();
         long pageSize = chatHistoryQueryRequest.getPageSize();
+        ThrowUtils.throwIf(pageNum <= 0, ErrorCode.PARAMS_ERROR, "页码必须大于 0");
+        ThrowUtils.throwIf(pageSize <= 0 || pageSize > MAX_ADMIN_PAGE_SIZE,
+                ErrorCode.PARAMS_ERROR, "每页查询数量必须在 1 到 50 之间");
         // 查询数据
         QueryWrapper queryWrapper = chatHistoryService.getQueryWrapper(chatHistoryQueryRequest);
         Page<ChatHistory> result = chatHistoryService.page(Page.of(pageNum, pageSize), queryWrapper);

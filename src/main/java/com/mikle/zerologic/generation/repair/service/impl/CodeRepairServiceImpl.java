@@ -3,6 +3,7 @@ package com.mikle.zerologic.generation.repair.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorService;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorServiceFactory;
+import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
 import com.mikle.zerologic.generation.tool.execution.ToolExecutionContext;
 import com.mikle.zerologic.generation.tool.execution.ToolExecutionContextHolder;
 import com.mikle.zerologic.generation.repair.config.RepairProperties;
@@ -32,6 +33,7 @@ public class CodeRepairServiceImpl implements CodeRepairService {
     @Resource private GenerationRepairRecordService repairRecordService;
     @Resource private ProjectSnapshotService snapshotService;
     @Resource private RepairProperties repairProperties;
+    @Resource private ChatMemoryProviderService chatMemoryProviderService;
 
     @Override
     public CodeRepairResult repair(Long taskId, Long appId, Long userId, int repairAttempt,
@@ -89,7 +91,8 @@ public class CodeRepairServiceImpl implements CodeRepairService {
                              String prompt, StringBuilder response) throws Exception {
         AiCodeGeneratorService service = aiServiceFactory.getAiCodeGeneratorService(CodeGenTypeEnum.VUE_PROJECT);
         CompletableFuture<Void> completion = new CompletableFuture<>();
-        TokenStream stream = service.repairVueProject(appId, prompt);
+        String repairMemoryId = chatMemoryProviderService.getRepairMemoryId(appId);
+        TokenStream stream = service.repairVueProject(repairMemoryId, prompt);
         ToolExecutionContextHolder.set(ToolExecutionContext.builder()
                 .taskId(taskId)
                 .appId(appId)
