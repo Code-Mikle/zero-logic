@@ -86,7 +86,8 @@ public class ToolAuditService {
                     .displayName(tool.getDisplayName())
                     .toolCategory(tool.getCategory().getValue())
                     .riskLevel(tool.getRiskLevel().getValue())
-                    .callSource(context == null ? null : context.getCallSource())
+                    .callSource(context == null || context.getCallSource() == null
+                            ? null : context.getCallSource().getValue())
                     .status(status)
                     .argumentsJson(StrUtil.subPre(JSONUtil.toJsonStr(sanitizeArguments(arguments)), MAX_ARGUMENTS_LENGTH))
                     .resultSummary(StrUtil.subPre(result, MAX_RESULT_LENGTH))

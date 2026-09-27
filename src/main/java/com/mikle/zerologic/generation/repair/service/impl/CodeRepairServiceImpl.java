@@ -5,6 +5,7 @@ import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorService;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorServiceFactory;
 import com.mikle.zerologic.generation.tool.execution.ToolExecutionContext;
 import com.mikle.zerologic.generation.tool.execution.ToolExecutionContextHolder;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.repair.config.RepairProperties;
 import com.mikle.zerologic.generation.build.model.result.BuildDiagnosis;
 import com.mikle.zerologic.generation.build.model.result.BuildResult;
@@ -99,7 +100,7 @@ public class CodeRepairServiceImpl implements CodeRepairService {
                 .taskId(taskId)
                 .appId(appId)
                 .userId(userId)
-                .callSource("repair")
+                .callSource(ToolCallSourceEnum.REPAIR)
                 .build());
         try {
             stream.onPartialResponse(response::append)

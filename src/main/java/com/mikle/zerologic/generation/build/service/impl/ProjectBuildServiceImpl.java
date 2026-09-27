@@ -2,7 +2,7 @@ package com.mikle.zerologic.generation.build.service.impl;
 
 import com.mikle.zerologic.generation.build.config.BuildProperties;
 import com.mikle.zerologic.generation.build.model.result.BuildResult;
-import com.mikle.zerologic.generation.codegen.builder.VueProjectBuilder;
+import com.mikle.zerologic.generation.build.executor.VueProjectBuilder;
 import com.mikle.zerologic.generation.build.model.entity.GenerationBuildRecord;
 import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
 import com.mikle.zerologic.generation.build.model.enums.GenerationBuildStatusEnum;

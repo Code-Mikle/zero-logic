@@ -41,38 +41,35 @@ public class JsonMessageStreamHandler {
     public Flux<String> handle(Flux<String> originFlux,
                                ChatHistoryService chatHistoryService,
                                long appId, User loginUser, Long attachmentId, Long taskId) {
-        // 收集数据用于生成后端记忆格式
-        StringBuilder chatHistoryStringBuilder = new StringBuilder();
-        // 用于跟踪已经见过的工具ID，判断是否是第一次调用
-        Set<String> seenToolIds = new HashSet<>();
-        return originFlux
-                .map(chunk -> {
-                    // 解析每个 JSON 消息块
-                    return handleJsonMessageChunk(chunk, chatHistoryStringBuilder, seenToolIds);
-                })
-                .filter(StrUtil::isNotEmpty) // 过滤空字串
-                .doOnComplete(() -> {
-                    // 流式响应完成后，添加 AI 消息到对话历史
-                    String aiResponse = chatHistoryStringBuilder.toString();
-                    chatHistoryService.addChatMessage(appId, aiResponse,
-                            ChatHistoryMessageTypeEnum.AI.getValue(),
-                            loginUser.getId(),
-                            null,
-                            taskId
-                    );
-                })
-                .doOnError(error -> {
-                    String collectedResponse = chatHistoryStringBuilder.toString();
-                    String historyMessage = collectedResponse.isBlank()
-                            ? "AI回复失败: " + error.getMessage()
-                            : collectedResponse;
-                    chatHistoryService.addChatMessage(appId, historyMessage,
-                            ChatHistoryMessageTypeEnum.AI.getValue(),
-                            loginUser.getId(),
-                            null,
-                            taskId
-                    );
-                });
+        return Flux.defer(() -> {
+            // 每次订阅使用独立状态，避免重复或并发订阅串数据。
+            StringBuilder chatHistoryStringBuilder = new StringBuilder();
+            Set<String> seenToolIds = new HashSet<>();
+            return originFlux
+                    .map(chunk -> handleJsonMessageChunk(chunk, chatHistoryStringBuilder, seenToolIds))
+                    .filter(StrUtil::isNotEmpty)
+                    .doOnComplete(() -> {
+                        String aiResponse = chatHistoryStringBuilder.toString();
+                        chatHistoryService.addChatMessage(appId, aiResponse,
+                                ChatHistoryMessageTypeEnum.AI.getValue(),
+                                loginUser.getId(),
+                                null,
+                                taskId
+                        );
+                    })
+                    .doOnError(error -> {
+                        String collectedResponse = chatHistoryStringBuilder.toString();
+                        String historyMessage = collectedResponse.isBlank()
+                                ? "AI回复失败: " + error.getMessage()
+                                : collectedResponse;
+                        chatHistoryService.addChatMessage(appId, historyMessage,
+                                ChatHistoryMessageTypeEnum.AI.getValue(),
+                                loginUser.getId(),
+                                null,
+                                taskId
+                        );
+                    });
+        });
     }
 
     /**

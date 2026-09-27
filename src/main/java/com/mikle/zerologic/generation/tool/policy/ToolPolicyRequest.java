@@ -1,6 +1,7 @@
 package com.mikle.zerologic.generation.tool.policy;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +22,7 @@ public class ToolPolicyRequest {
 
     private Long userId;
 
-    private String callSource;
+    private ToolCallSourceEnum callSource;
 
     private JSONObject arguments;
 }

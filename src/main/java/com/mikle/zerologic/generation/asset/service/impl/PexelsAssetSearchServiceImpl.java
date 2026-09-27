@@ -9,6 +9,7 @@ import cn.hutool.json.JSONObject;
 import com.mikle.zerologic.generation.asset.config.AssetProperties;
 import com.mikle.zerologic.generation.tool.model.entity.ToolCallRecord;
 import com.mikle.zerologic.generation.tool.model.enums.ToolCallStatusEnum;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.tool.model.enums.ToolCategoryEnum;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
 import com.mikle.zerologic.generation.asset.service.AssetSearchService;
@@ -127,7 +128,7 @@ public class PexelsAssetSearchServiceImpl implements AssetSearchService {
                     .displayName("Asset Search")
                     .toolCategory(ToolCategoryEnum.KNOWLEDGE.getValue())
                     .riskLevel(ToolRiskLevelEnum.LOW.getValue())
-                    .callSource("generate")
+                    .callSource(ToolCallSourceEnum.GENERATE.getValue())
                     .status(status)
                     .argumentsJson(StrUtil.subPre(JSONUtil.toJsonStr(arguments), MAX_RECORD_TEXT_LENGTH))
                     .resultSummary(StrUtil.subPre(JSONUtil.toJsonStr(result), MAX_RECORD_TEXT_LENGTH))

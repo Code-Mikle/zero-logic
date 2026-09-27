@@ -63,7 +63,6 @@ create table if not exists chat_history
     isDelete    tinyint  default 0                 not null comment '是否删除',
     attachmentId bigint null comment '附件ID',
     taskId bigint null comment '关联生成任务 ID',
-    INDEX idx_appId (appId),                       -- 提升基于应用的查询性能
     INDEX idx_createTime (createTime),             -- 提升基于时间的查询性能
     INDEX idx_appId_createTime (appId, createTime), -- 游标查询核心索引
     INDEX idx_attachmentId (attachmentId),

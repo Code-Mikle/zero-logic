@@ -3,6 +3,7 @@ package com.mikle.zerologic.generation.tool.policy;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import com.mikle.zerologic.generation.tool.file.ProjectToolPathResolver;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
@@ -35,7 +36,8 @@ public class ToolPolicyServiceImpl implements ToolPolicyService {
         if (StrUtil.isBlank(relativePath)) {
             return ToolPolicyResult.reject("写入、修改或删除工具必须提供相对路径");
         }
-        if (operation == ToolOperationEnum.DELETE && "repair".equals(request.getCallSource())) {
+        if (operation == ToolOperationEnum.DELETE
+                && request.getCallSource() == ToolCallSourceEnum.REPAIR) {
             return ToolPolicyResult.reject("自动修复阶段不允许删除文件");
         }
         ToolPolicyResult contentLimitResult = checkContentLimit(operation, arguments);
@@ -48,7 +50,8 @@ public class ToolPolicyServiceImpl implements ToolPolicyService {
         if (!isProtectedFilePath(relativePath)) {
             return ToolPolicyResult.allow();
         }
-        if (operation == ToolOperationEnum.WRITE && "generate".equals(request.getCallSource())
+        if (operation == ToolOperationEnum.WRITE
+                && request.getCallSource() == ToolCallSourceEnum.GENERATE
                 && isCreatingProtectedFile(request.getAppId(), relativePath)) {
             return ToolPolicyResult.allow();
         }

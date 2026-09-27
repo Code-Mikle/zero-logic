@@ -2,6 +2,7 @@ package com.mikle.zerologic.generation.tool.policy;
 
 import cn.hutool.json.JSONObject;
 import com.mikle.zerologic.generation.tool.file.ProjectToolPathResolver;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.tool.policy.ToolPolicyProperties;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
 import com.mikle.zerologic.generation.tool.policy.ToolOperationEnum;
@@ -29,7 +30,7 @@ class ToolPolicyServiceImplTest {
     @Test
     void allowsReadOperation() {
         ToolPolicyResult result = service.check(request(ToolOperationEnum.READ,
-                "repair", new JSONObject().set("relativeFilePath", ".env")));
+                ToolCallSourceEnum.REPAIR, new JSONObject().set("relativeFilePath", ".env")));
 
         assertTrue(result.isAllowed());
     }
@@ -37,7 +38,7 @@ class ToolPolicyServiceImplTest {
     @Test
     void rejectsProtectedFileModification() {
         ToolPolicyResult result = service.check(request(ToolOperationEnum.MODIFY,
-                "generate", new JSONObject()
+                ToolCallSourceEnum.GENERATE, new JSONObject()
                         .set("relativeFilePath", "package.json")
                         .set("newContent", "{}")));
 
@@ -53,7 +54,7 @@ class ToolPolicyServiceImplTest {
                 .appId(987654321L)
                 .taskId(12L)
                 .userId(7L)
-                .callSource("generate")
+                .callSource(ToolCallSourceEnum.GENERATE)
                 .arguments(new JSONObject()
                         .set("relativeFilePath", "package.json")
                         .set("content", "{}"))
@@ -65,7 +66,7 @@ class ToolPolicyServiceImplTest {
     @Test
     void rejectsDeleteDuringRepair() {
         ToolPolicyResult result = service.check(request(ToolOperationEnum.DELETE,
-                "repair", new JSONObject().set("relativeFilePath", "src/Unused.vue")));
+                ToolCallSourceEnum.REPAIR, new JSONObject().set("relativeFilePath", "src/Unused.vue")));
 
         assertFalse(result.isAllowed());
     }
@@ -73,7 +74,7 @@ class ToolPolicyServiceImplTest {
     @Test
     void rejectsProtectedDirectoryWrite() {
         ToolPolicyResult result = service.check(request(ToolOperationEnum.WRITE,
-                "generate", new JSONObject()
+                ToolCallSourceEnum.GENERATE, new JSONObject()
                         .set("relativeFilePath", "dist/index.html")
                         .set("content", "<html></html>")));
 
@@ -83,14 +84,15 @@ class ToolPolicyServiceImplTest {
     @Test
     void rejectsOversizedWrite() {
         ToolPolicyResult result = service.check(request(ToolOperationEnum.WRITE,
-                "generate", new JSONObject()
+                ToolCallSourceEnum.GENERATE, new JSONObject()
                         .set("relativeFilePath", "src/App.vue")
                         .set("content", "a".repeat(300_001))));
 
         assertFalse(result.isAllowed());
     }
 
-    private ToolPolicyRequest request(ToolOperationEnum operation, String callSource, JSONObject arguments) {
+    private ToolPolicyRequest request(ToolOperationEnum operation, ToolCallSourceEnum callSource,
+                                      JSONObject arguments) {
         return ToolPolicyRequest.builder()
                 .toolName("test")
                 .operation(operation)

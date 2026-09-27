@@ -2,6 +2,8 @@ package com.mikle.zerologic.generation.codegen.facade;
 
 import com.mikle.zerologic.generation.codegen.facade.AiCodeGeneratorFacade;
 import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
+import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -16,9 +18,19 @@ class AiCodeGeneratorFacadeTest {
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
 
+    @Resource
+    private ChatMemoryProviderService chatMemoryProviderService;
+
     @Test
     void generateAndSaveCodeStream() {
-        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream("生成一个登录页面，总共不超过 20 行代码", CodeGenTypeEnum.HTML, 1L);
+        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(
+                "生成一个登录页面，总共不超过 20 行代码",
+                CodeGenTypeEnum.HTML,
+                1L,
+                null,
+                null,
+                ToolCallSourceEnum.GENERATE,
+                chatMemoryProviderService.createAppMemory(1L));
         // 阻塞等待所有数据收集完成
         List<String> result = codeStream.collectList().block();
         // 验证结果
@@ -32,7 +44,12 @@ class AiCodeGeneratorFacadeTest {
     void generateVueProjectCodeStream() {
         Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(
                 "简单的任务记录网站，总代码量不超过 200 行",
-                CodeGenTypeEnum.VUE_PROJECT, 1L);
+                CodeGenTypeEnum.VUE_PROJECT,
+                1L,
+                null,
+                null,
+                ToolCallSourceEnum.GENERATE,
+                chatMemoryProviderService.createAppMemory(1L));
         // 阻塞等待所有数据收集完成
         List<String> result = codeStream.collectList().block();
         // 验证结果

@@ -26,33 +26,30 @@ public class SimpleTextStreamHandler {
     public Flux<String> handle(Flux<String> originFlux,
                                ChatHistoryService chatHistoryService, long appId,
                                User loginUser, Long attachmentId, Long taskId) {
-        StringBuilder aiResponseBuilder = new StringBuilder();
-        return originFlux
-                .map(chunk -> {
-                    // 收集AI响应内容
-                    aiResponseBuilder.append(chunk);
-                    return chunk;
-                })
-                .doOnComplete(() -> {
-                    // 流式响应完成后，添加AI消息到对话历史
-                    String aiResponse = aiResponseBuilder.toString();
-                    chatHistoryService.addChatMessage(appId, aiResponse,
-                            ChatHistoryMessageTypeEnum.AI.getValue(),
-                            loginUser.getId(),
-                            null,
-                            taskId);
-                })
-                .doOnError(error -> {
-                    String collectedResponse = aiResponseBuilder.toString();
-                    String historyMessage = collectedResponse.isBlank()
-                            ? "AI回复失败: " + error.getMessage()
-                            : collectedResponse;
-                    chatHistoryService.addChatMessage(appId, historyMessage,
-                            ChatHistoryMessageTypeEnum.AI.getValue(),
-                            loginUser.getId(),
-                            null,
-                            taskId
-                    );
-                });
+        return Flux.defer(() -> {
+            StringBuilder aiResponseBuilder = new StringBuilder();
+            return originFlux
+                    .doOnNext(aiResponseBuilder::append)
+                    .doOnComplete(() -> {
+                        String aiResponse = aiResponseBuilder.toString();
+                        chatHistoryService.addChatMessage(appId, aiResponse,
+                                ChatHistoryMessageTypeEnum.AI.getValue(),
+                                loginUser.getId(),
+                                null,
+                                taskId);
+                    })
+                    .doOnError(error -> {
+                        String collectedResponse = aiResponseBuilder.toString();
+                        String historyMessage = collectedResponse.isBlank()
+                                ? "AI回复失败: " + error.getMessage()
+                                : collectedResponse;
+                        chatHistoryService.addChatMessage(appId, historyMessage,
+                                ChatHistoryMessageTypeEnum.AI.getValue(),
+                                loginUser.getId(),
+                                null,
+                                taskId
+                        );
+                    });
+        });
     }
 }

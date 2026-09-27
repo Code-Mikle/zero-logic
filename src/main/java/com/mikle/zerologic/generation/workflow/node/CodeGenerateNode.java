@@ -5,6 +5,7 @@ import com.mikle.zerologic.generation.codegen.facade.AiCodeGeneratorFacade;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.generation.task.service.GenerationTaskProgressService;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.workflow.model.GenerationWorkflowContext;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class CodeGenerateNode {
                     context.getAppId(),
                     context.getTaskId(),
                     context.getUserId(),
-                    "generate",
+                    ToolCallSourceEnum.GENERATE,
                     context.getChatMemory()
             );
 

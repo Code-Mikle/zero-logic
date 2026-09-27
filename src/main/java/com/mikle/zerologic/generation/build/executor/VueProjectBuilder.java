@@ -1,7 +1,6 @@
-package com.mikle.zerologic.generation.codegen.builder;
+package com.mikle.zerologic.generation.build.executor;
 
 import com.mikle.zerologic.generation.build.config.BuildProperties;
-import com.mikle.zerologic.generation.build.executor.BuildCommandExecutor;
 import com.mikle.zerologic.generation.build.model.result.BuildResult;
 import com.mikle.zerologic.generation.build.model.result.CommandResult;
 import com.mikle.zerologic.generation.build.model.enums.GenerationBuildStatusEnum;

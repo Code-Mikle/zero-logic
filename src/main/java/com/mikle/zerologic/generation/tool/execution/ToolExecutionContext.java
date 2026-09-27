@@ -1,5 +1,6 @@
 package com.mikle.zerologic.generation.tool.execution;
 
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,8 +14,5 @@ public class ToolExecutionContext {
 
     private Long userId;
 
-    /**
-     * generate / repair / manual
-     */
-    private String callSource;
+    private ToolCallSourceEnum callSource;
 }
