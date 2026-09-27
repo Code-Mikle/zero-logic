@@ -3,8 +3,7 @@ package com.mikle.zerologic.generation.codegen.facade;
 import cn.hutool.json.JSONUtil;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorService;
 import com.mikle.zerologic.generation.codegen.service.AiCodeGeneratorServiceFactory;
-import com.mikle.zerologic.generation.codegen.model.HtmlCodeResult;
-import com.mikle.zerologic.generation.codegen.model.MultiFileCodeResult;
+import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
 import com.mikle.zerologic.generation.stream.model.AiResponseMessage;
 import com.mikle.zerologic.generation.stream.model.ToolExecutedMessage;
 import com.mikle.zerologic.generation.stream.model.ToolRequestMessage;
@@ -15,6 +14,7 @@ import com.mikle.zerologic.generation.codegen.saver.CodeFileSaverExecutor;
 import com.mikle.zerologic.exception.BusinessException;
 import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -35,35 +35,8 @@ public class AiCodeGeneratorFacade {
     @Resource
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
-    /**
-     * 统一入口：根据类型生成并保存代码
-     *
-     * @param userMessage     用户提示词
-     * @param codeGenTypeEnum 生成类型
-     * @param appId           应用 ID
-     * @return 保存的目录
-     */
-    public File generateAndSaveCode(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
-        if (codeGenTypeEnum == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "生成类型不能为空");
-        }
-        // 根据生成类型获取 AI 服务实例，appId 作为 MemoryId 传入具体方法
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(codeGenTypeEnum);
-        return switch (codeGenTypeEnum) {
-            case HTML -> {
-                HtmlCodeResult result = aiCodeGeneratorService.generateHtmlCode(appId, userMessage);
-                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.HTML, appId);
-            }
-            case MULTI_FILE -> {
-                MultiFileCodeResult result = aiCodeGeneratorService.generateMultiFileCode(appId, userMessage);
-                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.MULTI_FILE, appId);
-            }
-            default -> {
-                String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
-            }
-        };
-    }
+    @Resource
+    private ChatMemoryProviderService chatMemoryProviderService;
 
     /**
      * 统一入口：根据类型生成并保存代码（流式）
@@ -79,22 +52,30 @@ public class AiCodeGeneratorFacade {
 
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum,
                                                   Long appId, Long taskId, Long userId, String callSource) {
+        ChatMemory chatMemory = chatMemoryProviderService.createAppMemory(appId);
+        return generateAndSaveCodeStream(userMessage, codeGenTypeEnum, appId, taskId,
+                userId, callSource, chatMemory);
+    }
+
+    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum,
+                                                  Long appId, Long taskId, Long userId, String callSource,
+                                                  ChatMemory chatMemory) {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "生成类型不能为空");
         }
-        // 根据生成类型获取 AI 服务实例，appId 作为 MemoryId 传入具体方法
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(codeGenTypeEnum);
+        AiCodeGeneratorService aiCodeGeneratorService =
+                aiCodeGeneratorServiceFactory.createAiCodeGeneratorService(codeGenTypeEnum, chatMemory);
         return switch (codeGenTypeEnum) {
             case HTML -> {
-                Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(appId, userMessage);
+                Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
                 yield processCodeStream(codeStream, CodeGenTypeEnum.HTML, appId);
             }
             case MULTI_FILE -> {
-                Flux<String> codeStream = aiCodeGeneratorService.generateMultiFileCodeStream(appId, userMessage);
+                Flux<String> codeStream = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
                 yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             case VUE_PROJECT -> {
-                TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
+                TokenStream tokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(userMessage);
                 ToolExecutionContext context = ToolExecutionContext.builder()
                         .taskId(taskId)
                         .appId(appId)

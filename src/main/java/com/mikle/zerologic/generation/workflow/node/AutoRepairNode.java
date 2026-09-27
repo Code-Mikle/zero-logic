@@ -37,7 +37,7 @@ public class AutoRepairNode {
             taskProgressService.updateStep(context.getTaskId(), "auto_repair_" + attempt);
             CodeRepairResult result = codeRepairService.repair(context.getTaskId(), context.getAppId(),
                     context.getUserId(), attempt, Path.of(context.getGeneratedProjectDir()),
-                    context.getBuildResult(), context.getBuildDiagnosis());
+                    context.getBuildResult(), context.getBuildDiagnosis(), context.getRepairMemory());
             context.setRepairAttempt(attempt);
             context.setRepairResult(result);
             if (result.isSuccess()) {

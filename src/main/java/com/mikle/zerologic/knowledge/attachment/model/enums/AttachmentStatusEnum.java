@@ -6,8 +6,10 @@ import lombok.Getter;
 @Getter
 public enum AttachmentStatusEnum {
 
-    TEMPORARY("temporary", "temporary"),
-    BOUND("bound", "bound");
+    // 用户已经上传附件，但附件还没有绑定到具体应用。此时通常 appId = null。如果用户没有完成应用创建，定时任务会清理这种附件
+    TEMPORARY("临时附件", "temporary"),
+    // 附件已经绑定到某个应用，此时通常 appId != null，可以用于生成任务、知识库解析等业务
+    BOUND("已绑定附件", "bound");
 
     private final String text;
 

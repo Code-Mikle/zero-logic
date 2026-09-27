@@ -10,9 +10,6 @@ import java.util.List;
  */
 public final class EmbeddingJsonUtils {
 
-    private EmbeddingJsonUtils() {
-    }
-
     public static String toJson(List<Double> embedding) {
         return JSONUtil.toJsonStr(embedding);
     }

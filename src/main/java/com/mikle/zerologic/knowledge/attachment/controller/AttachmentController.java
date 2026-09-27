@@ -2,6 +2,8 @@ package com.mikle.zerologic.knowledge.attachment.controller;
 
 import com.mikle.zerologic.common.BaseResponse;
 import com.mikle.zerologic.common.ResultUtils;
+import com.mikle.zerologic.infrastructure.ratelimiter.annotation.RateLimit;
+import com.mikle.zerologic.infrastructure.ratelimiter.enums.RateLimitType;
 import com.mikle.zerologic.user.model.entity.User;
 import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import com.mikle.zerologic.knowledge.attachment.service.PromptAttachmentService;
@@ -22,14 +24,20 @@ public class AttachmentController {
     @Resource
     private PromptAttachmentService promptAttachmentService;
 
-    // 这个接口只接收 multipart/form-data 请求
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimit(
+            key = "attachment_upload",
+            limitType = RateLimitType.USER,
+            rate = 10,
+            rateInterval = 60,
+            message = "附件上传过于频繁，请稍后再试"
+    )
     public BaseResponse<PromptAttachmentVO> upload(
-            @RequestParam(required = false) Long appId, // 表示 appId 可以不传，不传时是 null
-            @RequestPart("file") MultipartFile file, // 表示从 multipart 请求的某个 part 中取出名为 file 的文件部分
-            HttpServletRequest httpServletRequest) {
+            @RequestParam(value = "appId", required = false) Long appId,
+            @RequestPart("file") MultipartFile file,
+            HttpServletRequest request) {
 
-        User loginUser = userService.getLoginUser(httpServletRequest);
+        User loginUser = userService.getLoginUser(request);
         PromptAttachmentVO promptAttachmentVO = promptAttachmentService.upload(file, appId, loginUser);
         return ResultUtils.success(promptAttachmentVO);
     }

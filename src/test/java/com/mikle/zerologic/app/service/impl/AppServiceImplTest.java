@@ -6,7 +6,7 @@ import com.mikle.zerologic.app.model.entity.App;
 import com.mikle.zerologic.app.model.vo.AppVO;
 import com.mikle.zerologic.app.model.vo.GoodAppVO;
 import com.mikle.zerologic.exception.BusinessException;
-import com.mikle.zerologic.knowledge.attachment.model.entity.PromptAttachment;
+import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import com.mikle.zerologic.knowledge.attachment.service.PromptAttachmentService;
 import com.mikle.zerologic.user.model.entity.User;
 import com.mikle.zerologic.user.model.vo.UserVO;
@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,14 +61,14 @@ class AppServiceImplTest {
         User user = User.builder().id(7L).userName("tester").build();
         UserVO userVO = new UserVO();
         userVO.setId(7L);
-        PromptAttachment attachment = PromptAttachment.builder()
-                .id(11L)
-                .fileName("requirements.md")
-                .build();
+        PromptAttachmentVO attachmentVO = new PromptAttachmentVO();
+        attachmentVO.setId(11L);
+        attachmentVO.setFileName("requirements.md");
 
         when(userService.listByIds(Set.of(7L))).thenReturn(List.of(user));
         when(userService.getUserVO(user)).thenReturn(userVO);
-        when(promptAttachmentService.listByIds(Set.of(11L))).thenReturn(List.of(attachment));
+        when(promptAttachmentService.getAttachmentVOMapByIds(Set.of(11L)))
+                .thenReturn(Map.of(11L, attachmentVO));
 
         List<AppVO> result = appService.getAppVOList(List.of(firstApp, secondApp));
 
@@ -77,7 +78,7 @@ class AppServiceImplTest {
         assertEquals("requirements.md", result.get(0).getPromptAttachmentVO().getFileName());
         verify(userService).listByIds(Set.of(7L));
         verify(userService).getUserVO(user);
-        verify(promptAttachmentService).listByIds(Set.of(11L));
+        verify(promptAttachmentService).getAttachmentVOMapByIds(Set.of(11L));
         verify(userService, never()).getById(anyLong());
         verify(promptAttachmentService, never()).getAttachmentVOById(anyLong());
     }

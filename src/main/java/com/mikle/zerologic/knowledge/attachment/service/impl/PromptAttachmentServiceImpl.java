@@ -22,13 +22,19 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.mikle.zerologic.knowledge.attachment.constant.AttachmentLimitConstant.MAX_ATTACHMENT_CONTENT_LENGTH;
 
 /**
- *  服务层实现。
+ *  附件上传
  * @author <a href="https://github.com/Code-Mikle">Mikle</a>
  */
 @Service
@@ -49,9 +55,9 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
 
     @Override
     public PromptAttachmentVO upload(MultipartFile file, Long appId, User loginUser) {
+        String extension = validateUploadRequest(file, appId, loginUser);
+
         String fileName = file.getOriginalFilename();
-        String extension = FileUtil.extName(fileName);
-        validateUploadRequest(file, appId, loginUser);
 
         if ("pdf".equals(extension)) {
             validatePdfHeader(file);
@@ -91,8 +97,8 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
 
     @Override
     public PromptAttachment getUsableAttachment(Long attachmentId, Long userId, Long appId) {
-        ThrowUtils.throwIf(attachmentId == null || userId == null || appId == null,
-                ErrorCode.OPERATION_ERROR, "附件参数错误");
+        ThrowUtils.throwIf(isInvalidId(attachmentId) || isInvalidId(userId) || isInvalidId(appId),
+                ErrorCode.PARAMS_ERROR, "附件参数错误");
 
         QueryWrapper queryWrapper = QueryWrapper.create()
                 .eq("id", attachmentId)
@@ -117,7 +123,8 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
     @Override
     public void bindToApp(Long attachmentId, Long appId, Long userId) {
         ThrowUtils.throwIf(
-                attachmentId == null || appId == null || userId == null, ErrorCode.PARAMS_ERROR,
+                isInvalidId(attachmentId) || isInvalidId(appId) || isInvalidId(userId),
+                ErrorCode.PARAMS_ERROR,
                 "附件绑定参数错误"
         );
         PromptAttachment updateAttachment = PromptAttachment.builder()
@@ -141,23 +148,15 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
     }
 
     @Override
-    public PromptAttachmentVO getAttachmentVOByAppId(Long appId) {
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq("appId", appId)
-                .eq("status", AttachmentStatusEnum.BOUND.getValue());
-        PromptAttachment attachment = this.getOne(queryWrapper);
-        return attachment == null ? null : toPromptAttachmentVO(attachment);
-    }
-
-    @Override
-    public PromptAttachment getTemporaryAttachment(Long attachmentId, Long userId) {
+    public void validateTemporaryAttachment(Long attachmentId, Long userId) {
         ThrowUtils.throwIf(
-                attachmentId == null || userId == null,
+                isInvalidId(attachmentId) || isInvalidId(userId),
                 ErrorCode.PARAMS_ERROR,
                 "附件参数错误"
         );
 
         QueryWrapper queryWrapper = QueryWrapper.create()
+                .select("id")
                 .eq("id", attachmentId)
                 .eq("userId", userId)
                 .eq("status", AttachmentStatusEnum.TEMPORARY.getValue())
@@ -170,23 +169,58 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
                 ErrorCode.PARAMS_ERROR,
                 "附件不存在、无权访问或已经绑定"
         );
-
-        return attachment;
     }
 
     @Override
     public PromptAttachmentVO getAttachmentVOById(Long attachmentId) {
-        if (attachmentId == null) {
+        if (isInvalidId(attachmentId)) {
             return null;
         }
-        PromptAttachment attachment = this.getById(attachmentId);
+        QueryWrapper queryWrapper = attachmentSummaryQuery()
+                .eq("id", attachmentId);
+        PromptAttachment attachment = this.getOne(queryWrapper);
         return attachment == null ? null : toPromptAttachmentVO(attachment);
-
     }
 
-    private void validateUploadRequest(MultipartFile file, Long appId, User loginUser) {
+    @Override
+    public Map<Long, PromptAttachmentVO> getAttachmentVOMapByIds(Collection<Long> attachmentIds) {
+        if (attachmentIds == null || attachmentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
 
-        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        Set<Long> validAttachmentIds = attachmentIds.stream()
+                .filter(id -> !isInvalidId(id))
+                .collect(Collectors.toSet());
+        if (validAttachmentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        QueryWrapper queryWrapper = attachmentSummaryQuery()
+                .in("id", validAttachmentIds);
+        return this.list(queryWrapper).stream()
+                .collect(Collectors.toMap(
+                        PromptAttachment::getId,
+                        this::toPromptAttachmentVO
+                ));
+    }
+
+    @Override
+    public int physicalDeleteExpiredTemporary(LocalDateTime expireTime) {
+        if (expireTime == null) {
+            return 0;
+        }
+        return mapper.physicalDeleteExpiredTemporary(
+                AttachmentStatusEnum.TEMPORARY.getValue(),
+                expireTime
+        );
+    }
+
+    private String validateUploadRequest(MultipartFile file, Long appId, User loginUser) {
+
+        ThrowUtils.throwIf(
+                loginUser == null || isInvalidId(loginUser.getId()),
+                ErrorCode.NOT_LOGIN_ERROR
+        );
 
 
         ThrowUtils.throwIf(file == null || file.isEmpty(), ErrorCode.PARAMS_ERROR,
@@ -218,7 +252,7 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
                 "文件名不合法"
         );
 
-        String extension = FileUtil.extName(fileName).toLowerCase();
+        String extension = FileUtil.extName(fileName).toLowerCase(Locale.ROOT);
 
         ThrowUtils.throwIf(
                 !ALLOWED_EXTENSIONS.contains(extension),
@@ -230,6 +264,7 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
             validateAppOwnership(appId, loginUser.getId());
         }
 
+        return extension;
     }
 
     private void validateAppOwnership(Long appId, Long userId) {
@@ -239,7 +274,10 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
                 "应用 ID 错误"
         );
 
-        App app = appMapper.selectOneById(appId);
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                .select("id", "userId")
+                .eq("id", appId);
+        App app = appMapper.selectOneByQuery(queryWrapper);
 
         ThrowUtils.throwIf(
                 app == null,
@@ -286,5 +324,14 @@ public class PromptAttachmentServiceImpl extends ServiceImpl<PromptAttachmentMap
         vo.setContentType(attachment.getContentType());
         vo.setFileSize(attachment.getFileSize());
         return vo;
+    }
+
+    private QueryWrapper attachmentSummaryQuery() {
+        return QueryWrapper.create()
+                .select("id", "fileName", "fileExtension", "contentType", "fileSize");
+    }
+
+    private boolean isInvalidId(Long id) {
+        return id == null || id <= 0;
     }
 }

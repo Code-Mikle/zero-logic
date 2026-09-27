@@ -33,12 +33,6 @@ public class RagServiceImpl implements RagService {
 
     /**
      * 检索：问题向量化 → 相似度计算 → TopK → 拼接上下文
-     * @param taskId 任务 id
-     * @param appId 应用 id
-     * @param userId 用户 id
-     * @param attachmentId 附件 id
-     * @param query 用户输入的 query
-     * @return
      */
     @Override
     public RagResult retrieve(Long taskId, Long appId, Long userId, Long attachmentId, String query) {

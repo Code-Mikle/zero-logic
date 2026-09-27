@@ -1,8 +1,6 @@
 package com.mikle.zerologic.knowledge.attachment.job;
 
-import com.mikle.zerologic.knowledge.attachment.model.enums.AttachmentStatusEnum;
 import com.mikle.zerologic.knowledge.attachment.service.PromptAttachmentService;
-import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,21 +27,16 @@ public class PromptAttachmentCleanupJob {
      * - 临时附件没有绑定成功
      * 不解决：
      * - 对话页已绑定但未使用的附件
-     * - 同一个app下多次上传后废弃的附件
+     * - 同一个 app 下多次上传后废弃的附件
      */
     @Scheduled(cron = "0 0 * * * ?")
     public void cleanupTemporaryAttachments() {
         LocalDateTime expireTime = LocalDateTime.now().minusHours(temporaryTtlHours);
 
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq("status", AttachmentStatusEnum.TEMPORARY.getValue())
-                .isNull("appId")
-                .lt("createTime", expireTime);
+        int deletedCount = promptAttachmentService.physicalDeleteExpiredTemporary(expireTime);
 
-        boolean removed = promptAttachmentService.remove(queryWrapper);
-
-        if (removed) {
-            log.info("临时附件清理完成，expireTime={}", expireTime);
+        if (deletedCount > 0) {
+            log.info("临时附件清理完成，deletedCount={}，expireTime={}", deletedCount, expireTime);
         }
     }
 }

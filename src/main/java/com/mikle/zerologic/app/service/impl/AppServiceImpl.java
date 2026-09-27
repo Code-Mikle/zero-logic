@@ -32,7 +32,6 @@ import com.mikle.zerologic.exception.ErrorCode;
 import com.mikle.zerologic.exception.ThrowUtils;
 import com.mikle.zerologic.app.mapper.AppMapper;
 import com.mikle.zerologic.generation.task.mapper.GenerationTaskMapper;
-import com.mikle.zerologic.generation.memory.service.ChatMemoryProviderService;
 import com.mikle.zerologic.app.model.dto.AdminAppQueryRequest;
 import com.mikle.zerologic.app.model.dto.AppAddRequest;
 import com.mikle.zerologic.app.model.dto.GoodAppPageQueryRequest;
@@ -46,7 +45,6 @@ import com.mikle.zerologic.app.deployment.model.enums.DeployTypeEnum;
 import com.mikle.zerologic.app.model.vo.AppVO;
 import com.mikle.zerologic.app.deployment.model.vo.DeployRecordVO;
 import com.mikle.zerologic.app.model.vo.GoodAppVO;
-import com.mikle.zerologic.knowledge.attachment.model.entity.PromptAttachment;
 import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import com.mikle.zerologic.app.version.model.vo.ProjectVersionVO;
 import com.mikle.zerologic.user.model.vo.UserVO;
@@ -97,9 +95,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private ChatHistoryService chatHistoryService;
-
-    @Resource
-    private ChatMemoryProviderService chatMemoryProviderService;
 
     @Resource
     private ProjectVersionService projectVersionService;
@@ -154,7 +149,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         Long attachmentId = appAddRequest.getAttachmentId();
         // 统一验证：存在、属于当前用户、temporary、尚未绑定
         if (attachmentId != null) {
-            promptAttachmentService.getTemporaryAttachment(
+            promptAttachmentService.validateTemporaryAttachment(
                     attachmentId,
                     loginUser.getId()
             );
@@ -205,7 +200,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         deleteRelatedRecords(appId);
         boolean removed = super.removeById(id);
         if (removed) {
-            safeRemove("chat_memory", () -> chatMemoryProviderService.clearMemory(appId));
             deleteGeneratedFiles(app);
         }
         return removed;
@@ -433,13 +427,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .map(App::getInitAttachmentId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<Long, PromptAttachmentVO> attachmentVOMap = attachmentIds.isEmpty()
-                ? Collections.emptyMap()
-                : promptAttachmentService.listByIds(attachmentIds).stream()
-                .collect(Collectors.toMap(
-                        PromptAttachment::getId,
-                        this::toPromptAttachmentVO
-                ));
+        Map<Long, PromptAttachmentVO> attachmentVOMap =
+                promptAttachmentService.getAttachmentVOMapByIds(attachmentIds);
 
         return appList.stream().map(app -> {
             AppVO appVO = new AppVO();
@@ -460,12 +449,6 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
         return userService.listByIds(userIds).stream()
                 .collect(Collectors.toMap(User::getId, userService::getUserVO));
-    }
-
-    private PromptAttachmentVO toPromptAttachmentVO(PromptAttachment attachment) {
-        PromptAttachmentVO attachmentVO = new PromptAttachmentVO();
-        BeanUtil.copyProperties(attachment, attachmentVO);
-        return attachmentVO;
     }
 
     @Override

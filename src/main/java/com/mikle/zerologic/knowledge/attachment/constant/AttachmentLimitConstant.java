@@ -6,7 +6,4 @@ package com.mikle.zerologic.knowledge.attachment.constant;
 public final class AttachmentLimitConstant {
 
     public static final int MAX_ATTACHMENT_CONTENT_LENGTH = 20_000;
-
-    private AttachmentLimitConstant() {
-    }
 }

@@ -56,6 +56,7 @@ generation:
 rag:
   enabled: true
   top-k: 5
+  min-score: ${RAG_MIN_SCORE:0.3}
   max-injected-chars: 6000
   chunk-size: 1000
   chunk-overlap: 120

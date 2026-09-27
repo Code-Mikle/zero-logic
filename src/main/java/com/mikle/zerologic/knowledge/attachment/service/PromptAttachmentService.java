@@ -6,6 +6,10 @@ import com.mikle.zerologic.user.model.entity.User;
 import com.mikle.zerologic.knowledge.attachment.model.vo.PromptAttachmentVO;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Map;
+
 /**
  *  服务层。
  *
@@ -19,9 +23,11 @@ public interface PromptAttachmentService extends IService<PromptAttachment> {
 
     void bindToApp(Long attachmentId, Long appId, Long userId);
 
-    PromptAttachmentVO getAttachmentVOByAppId(Long appId);
-
-    PromptAttachment getTemporaryAttachment(Long attachmentId, Long userId);
+    void validateTemporaryAttachment(Long attachmentId, Long userId);
 
     PromptAttachmentVO getAttachmentVOById(Long attachmentId);
+
+    Map<Long, PromptAttachmentVO> getAttachmentVOMapByIds(Collection<Long> attachmentIds);
+
+    int physicalDeleteExpiredTemporary(LocalDateTime expireTime);
 }

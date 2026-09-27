@@ -48,7 +48,8 @@ public class CodeGenerateNode {
                     context.getAppId(),
                     context.getTaskId(),
                     context.getUserId(),
-                    "generate"
+                    "generate",
+                    context.getChatMemory()
             );
 
             codeStreamRef.set(codeStream);

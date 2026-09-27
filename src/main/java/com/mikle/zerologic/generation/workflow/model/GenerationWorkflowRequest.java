@@ -1,6 +1,7 @@
 package com.mikle.zerologic.generation.workflow.model;
 
 import com.mikle.zerologic.generation.codegen.model.enums.CodeGenTypeEnum;
+import dev.langchain4j.memory.ChatMemory;
 
 /**
  * 作为 AppServiceImpl -> GenerationWorkflowService 的入参对象。
@@ -18,6 +19,10 @@ public record GenerationWorkflowRequest(
 
         CodeGenTypeEnum codeGenType,
 
-        Long attachmentId
+        Long attachmentId,
+
+        ChatMemory chatMemory,
+
+        ChatMemory repairMemory
 ) {
 }

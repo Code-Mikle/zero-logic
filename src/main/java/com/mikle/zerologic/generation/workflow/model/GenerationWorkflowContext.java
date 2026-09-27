@@ -7,6 +7,7 @@ import com.mikle.zerologic.generation.repair.model.result.CodeRepairResult;
 import com.mikle.zerologic.knowledge.retrieval.model.result.RagRetrievedChunk;
 import com.mikle.zerologic.generation.asset.model.AssetPlan;
 import com.mikle.zerologic.generation.asset.model.AssetResource;
+import dev.langchain4j.memory.ChatMemory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,6 +44,16 @@ public class GenerationWorkflowContext implements Serializable {
     private CodeGenTypeEnum codeGenType;
 
     private Long attachmentId;
+
+    /**
+     * 仅在当前生成任务中使用，不参与工作流持久化。
+     */
+    private transient ChatMemory chatMemory;
+
+    /**
+     * 自动修复独立使用的任务级记忆，不与普通生成上下文混用。
+     */
+    private transient ChatMemory repairMemory;
     // 当前 workflow 步骤，初始为 init
     private String currentStep;
     // 原始用户消息，用于 RAG 检索和 prompt 展示
@@ -83,6 +94,8 @@ public class GenerationWorkflowContext implements Serializable {
                 .displayMessage(request.displayMessage())
                 .codeGenType(request.codeGenType())
                 .attachmentId(request.attachmentId())
+                .chatMemory(request.chatMemory())
+                .repairMemory(request.repairMemory())
                 .currentStep("init")
                 .buildAttempt(1)
                 .repairAttempt(0)
