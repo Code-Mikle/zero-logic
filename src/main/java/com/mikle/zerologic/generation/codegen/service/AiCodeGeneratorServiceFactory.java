@@ -16,9 +16,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class AiCodeGeneratorServiceFactory {
 
-    @Resource(name = "openAiChatModel")
-    private ChatModel chatModel;
-
     @Resource(name = "streamingChatModelPrototype")
     private StreamingChatModel openAiStreamingChatModel;
 
@@ -46,7 +43,6 @@ public class AiCodeGeneratorServiceFactory {
 
     private AiCodeGeneratorService createVueProjectService(ChatMemory chatMemory) {
         return AiServices.builder(AiCodeGeneratorService.class)
-                .chatModel(chatModel)
                 .streamingChatModel(reasoningStreamingChatModel)
                 .chatMemory(chatMemory)
                 .tools((Object[]) toolManager.getAllTools())
@@ -60,7 +56,6 @@ public class AiCodeGeneratorServiceFactory {
 
     private AiCodeGeneratorService createSimpleCodeService(ChatMemory chatMemory) {
         return AiServices.builder(AiCodeGeneratorService.class)
-                .chatModel(chatModel)
                 .streamingChatModel(openAiStreamingChatModel)
                 .chatMemory(chatMemory)
                 .inputGuardrails(new PromptSafetyInputGuardrail())

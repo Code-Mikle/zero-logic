@@ -3,6 +3,12 @@ package com.mikle.zerologic.generation.tool.execution;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 工具执行上下文持有器，按 appId 管理跨线程共享的上下文。
+ *
+ * <p>用于在 TokenStream 回调线程和工具执行线程之间传递任务、应用、
+ * 用户及调用来源信息。同一 appId 的生成流程必须互斥，并在流程结束时清理。</p>
+ */
 public final class ToolExecutionContextHolder {
 
     private static final Map<Long, ToolExecutionContext> APP_CONTEXT_MAP = new ConcurrentHashMap<>();
