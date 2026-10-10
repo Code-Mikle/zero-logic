@@ -2,6 +2,7 @@ package com.mikle.zerologic.generation.tool.file;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.execution.ToolActionResult;
 import com.mikle.zerologic.generation.tool.policy.ToolOperationEnum;
 import com.mikle.zerologic.generation.tool.execution.ToolAuditService;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
@@ -46,7 +47,7 @@ public class FileWriteTool extends BaseTool {
                 () -> doWriteFile(relativeFilePath, content, appId));
     }
 
-    private String doWriteFile(String relativeFilePath, String content, Long appId) {
+    private ToolActionResult doWriteFile(String relativeFilePath, String content, Long appId) {
         try {
             Path path = pathResolver.resolve(appId, relativeFilePath);
             // 创建父目录（如果不存在）
@@ -60,11 +61,11 @@ public class FileWriteTool extends BaseTool {
                     StandardOpenOption.TRUNCATE_EXISTING);
             log.info("成功写入文件: {}", path.toAbsolutePath());
             // 注意要返回相对路径，不能让 AI 把文件绝对路径返回给用户
-            return "文件写入成功: " + relativeFilePath;
+            return ToolActionResult.success("文件写入成功: " + relativeFilePath);
         } catch (IOException | IllegalArgumentException e) {
             String errorMessage = "文件写入失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return ToolActionResult.failed(errorMessage);
         }
     }
 

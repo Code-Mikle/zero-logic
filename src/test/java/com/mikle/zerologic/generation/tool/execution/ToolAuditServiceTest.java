@@ -9,6 +9,7 @@ import com.mikle.zerologic.generation.tool.execution.ToolExecutionContextHolder;
 import com.mikle.zerologic.generation.tool.file.BaseTool;
 import com.mikle.zerologic.generation.tool.model.entity.ToolCallRecord;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
+import com.mikle.zerologic.generation.tool.model.enums.ToolCallStatusEnum;
 import com.mikle.zerologic.generation.tool.model.enums.ToolCallSourceEnum;
 import com.mikle.zerologic.generation.tool.service.ToolCallRecordService;
 import org.junit.jupiter.api.AfterEach;
@@ -56,7 +57,7 @@ class ToolAuditServiceTest {
 
         String result = auditService.audit(new TestTool(), 42L,
                 new JSONObject().set("relativeFilePath", "src/App.vue"),
-                () -> "文件写入成功: src/App.vue");
+                () -> ToolActionResult.success("文件写入成功: src/App.vue"));
 
         assertEquals("文件写入成功: src/App.vue", result);
         ArgumentCaptor<ToolCallRecord> captor = ArgumentCaptor.forClass(ToolCallRecord.class);
@@ -78,13 +79,44 @@ class ToolAuditServiceTest {
         when(toolPolicyService.check(any())).thenReturn(ToolPolicyResult.reject("受保护路径不允许执行该工具操作"));
 
         String result = auditService.audit(new TestTool(), 42L, new JSONObject(),
-                () -> "不会执行");
+                () -> ToolActionResult.success("不会执行"));
 
         assertEquals("工具调用被安全策略拒绝：受保护路径不允许执行该工具操作", result);
         ArgumentCaptor<ToolCallRecord> captor = ArgumentCaptor.forClass(ToolCallRecord.class);
         verify(toolCallRecordService).save(captor.capture());
         assertEquals("rejected", captor.getValue().getStatus());
         assertEquals("受保护路径不允许执行该工具操作", captor.getValue().getErrorMessage());
+    }
+
+    @Test
+    void recordsExplicitFailureWithoutParsingMessage() {
+        ToolAuditService auditService = createAuditService();
+        when(toolCallRecordService.save(any(ToolCallRecord.class))).thenReturn(true);
+        when(toolPolicyService.check(any())).thenReturn(ToolPolicyResult.allow());
+
+        String result = auditService.audit(new TestTool(), 42L, new JSONObject(),
+                () -> ToolActionResult.failed("目标文件不存在"));
+
+        assertEquals("目标文件不存在", result);
+        ArgumentCaptor<ToolCallRecord> captor = ArgumentCaptor.forClass(ToolCallRecord.class);
+        verify(toolCallRecordService).save(captor.capture());
+        assertEquals(ToolCallStatusEnum.FAILED.getValue(), captor.getValue().getStatus());
+        assertEquals("目标文件不存在", captor.getValue().getErrorMessage());
+    }
+
+    @Test
+    void keepsExplicitSuccessWhenMessageContainsFailureText() {
+        ToolAuditService auditService = createAuditService();
+        when(toolCallRecordService.save(any(ToolCallRecord.class))).thenReturn(true);
+        when(toolPolicyService.check(any())).thenReturn(ToolPolicyResult.allow());
+
+        String result = auditService.audit(new TestTool(), 42L, new JSONObject(),
+                () -> ToolActionResult.success("文件内容：return \"构建失败\";"));
+
+        assertEquals("文件内容：return \"构建失败\";", result);
+        ArgumentCaptor<ToolCallRecord> captor = ArgumentCaptor.forClass(ToolCallRecord.class);
+        verify(toolCallRecordService).save(captor.capture());
+        assertEquals(ToolCallStatusEnum.SUCCESS.getValue(), captor.getValue().getStatus());
     }
 
     @Test

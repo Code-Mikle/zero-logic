@@ -1,6 +1,7 @@
 package com.mikle.zerologic.generation.tool.file;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.execution.ToolActionResult;
 import com.mikle.zerologic.generation.tool.policy.ToolOperationEnum;
 import com.mikle.zerologic.generation.tool.execution.ToolAuditService;
 import com.mikle.zerologic.generation.tool.model.enums.ToolRiskLevelEnum;
@@ -41,22 +42,22 @@ public class FileDeleteTool extends BaseTool {
                 () -> doDeleteFile(relativeFilePath, appId));
     }
 
-    private String doDeleteFile(String relativeFilePath, Long appId) {
+    private ToolActionResult doDeleteFile(String relativeFilePath, Long appId) {
         try {
             Path path = pathResolver.resolve(appId, relativeFilePath);
             if (!Files.exists(path)) {
-                return "警告：文件不存在，无需删除 - " + relativeFilePath;
+                return ToolActionResult.success("警告：文件不存在，无需删除 - " + relativeFilePath);
             }
             if (!Files.isRegularFile(path)) {
-                return "错误：指定路径不是文件，无法删除 - " + relativeFilePath;
+                return ToolActionResult.failed("错误：指定路径不是文件，无法删除 - " + relativeFilePath);
             }
             Files.delete(path);
             log.info("成功删除文件: {}", path.toAbsolutePath());
-            return "文件删除成功: " + relativeFilePath;
+            return ToolActionResult.success("文件删除成功: " + relativeFilePath);
         } catch (IOException | IllegalArgumentException e) {
             String errorMessage = "删除文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return ToolActionResult.failed(errorMessage);
         }
     }
 

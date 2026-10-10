@@ -1,6 +1,7 @@
 package com.mikle.zerologic.generation.tool.file;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.execution.ToolActionResult;
 import com.mikle.zerologic.generation.tool.execution.ToolAuditService;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
@@ -39,17 +40,17 @@ public class FileReadTool extends BaseTool {
                 () -> doReadFile(relativeFilePath, appId));
     }
 
-    private String doReadFile(String relativeFilePath, Long appId) {
+    private ToolActionResult doReadFile(String relativeFilePath, Long appId) {
         try {
             Path path = pathResolver.resolve(appId, relativeFilePath);
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
-                return "错误：文件不存在或不是文件 - " + relativeFilePath;
+                return ToolActionResult.failed("错误：文件不存在或不是文件 - " + relativeFilePath);
             }
-            return Files.readString(path);
+            return ToolActionResult.success(Files.readString(path));
         } catch (IOException | IllegalArgumentException e) {
             String errorMessage = "读取文件失败: " + relativeFilePath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return ToolActionResult.failed(errorMessage);
         }
     }
 

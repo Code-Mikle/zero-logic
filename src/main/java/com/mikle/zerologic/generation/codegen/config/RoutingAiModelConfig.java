@@ -31,7 +31,7 @@ public class RoutingAiModelConfig {
     private Boolean logResponses = false;
 
     /**
-     * 创建用于路由判断的ChatModel
+     * 创建用于路由判断的 ChatModel
      */
     @Bean
     @Scope("prototype")

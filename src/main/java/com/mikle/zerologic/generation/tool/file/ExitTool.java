@@ -1,6 +1,7 @@
 package com.mikle.zerologic.generation.tool.file;
 
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.execution.ToolActionResult;
 import com.mikle.zerologic.generation.tool.policy.ToolOperationEnum;
 import com.mikle.zerologic.generation.tool.execution.ToolAuditService;
 import com.mikle.zerologic.generation.tool.model.enums.ToolCategoryEnum;
@@ -41,9 +42,9 @@ public class ExitTool extends BaseTool {
         return toolAuditService.audit(this, appId, new JSONObject(), this::doExit);
     }
 
-    private String doExit() {
+    private ToolActionResult doExit() {
         log.info("AI 请求退出工具调用");
-        return "不要继续调用工具，可以输出最终结果了";
+        return ToolActionResult.success("不要继续调用工具，可以输出最终结果了");
     }
 
     @Override

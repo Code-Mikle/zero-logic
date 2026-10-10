@@ -34,7 +34,7 @@ public class ToolAuditService {
     @Resource
     private ToolPolicyService toolPolicyService;
 
-    public String audit(BaseTool tool, Long appId, JSONObject arguments, Supplier<String> action) {
+    public String audit(BaseTool tool, Long appId, JSONObject arguments, Supplier<ToolActionResult> action) {
         long startTime = System.currentTimeMillis();
         ToolExecutionContext context = ToolExecutionContextHolder.get(appId);
         String result = null;
@@ -48,8 +48,12 @@ public class ToolAuditService {
                 result = "工具调用被安全策略拒绝：" + policyResult.getReason();
                 return result;
             }
-            result = action.get();
-            status = inferStatus(result);
+            ToolActionResult actionResult = action.get();
+            result = actionResult.message();
+            status = actionResult.status().getValue();
+            if (actionResult.status() == ToolCallStatusEnum.FAILED) {
+                errorMessage = result;
+            }
             return result;
         } catch (RuntimeException e) {
             status = ToolCallStatusEnum.FAILED.getValue();
@@ -107,24 +111,6 @@ public class ToolAuditService {
             return appId;
         }
         return context == null ? 0L : context.getAppId();
-    }
-
-    private String inferStatus(String result) {
-        if (StrUtil.isBlank(result)) {
-            return ToolCallStatusEnum.SUCCESS.getValue();
-        }
-        String normalized = result.trim().toLowerCase();
-        if (normalized.contains("不允许")
-                || normalized.contains("not allowed")
-                || normalized.contains("forbidden")) {
-            return ToolCallStatusEnum.REJECTED.getValue();
-        }
-        if (normalized.startsWith("错误")
-                || normalized.contains("失败")
-                || normalized.startsWith("error")) {
-            return ToolCallStatusEnum.FAILED.getValue();
-        }
-        return ToolCallStatusEnum.SUCCESS.getValue();
     }
 
     private JSONObject sanitizeArguments(JSONObject arguments) {

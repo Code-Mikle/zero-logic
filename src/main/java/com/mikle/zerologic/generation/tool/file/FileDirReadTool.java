@@ -3,6 +3,7 @@ package com.mikle.zerologic.generation.tool.file;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
+import com.mikle.zerologic.generation.tool.execution.ToolActionResult;
 import com.mikle.zerologic.generation.tool.execution.ToolAuditService;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
@@ -57,12 +58,12 @@ public class FileDirReadTool extends BaseTool {
                 () -> doReadDir(relativeDirPath, appId));
     }
 
-    private String doReadDir(String relativeDirPath, Long appId) {
+    private ToolActionResult doReadDir(String relativeDirPath, Long appId) {
         try {
             Path path = pathResolver.resolve(appId, relativeDirPath);
             File targetDir = path.toFile();
             if (!targetDir.exists() || !targetDir.isDirectory()) {
-                return "错误：目录不存在或不是目录 - " + relativeDirPath;
+                return ToolActionResult.failed("错误：目录不存在或不是目录 - " + relativeDirPath);
             }
             StringBuilder structure = new StringBuilder();
             structure.append("项目目录结构:\n");
@@ -83,11 +84,11 @@ public class FileDirReadTool extends BaseTool {
                         String indent = "  ".repeat(depth);
                         structure.append(indent).append(file.getName()).append('\n');
                     });
-            return structure.toString();
+            return ToolActionResult.success(structure.toString());
         } catch (Exception e) {
             String errorMessage = "读取目录结构失败: " + relativeDirPath + ", 错误: " + e.getMessage();
             log.error(errorMessage, e);
-            return errorMessage;
+            return ToolActionResult.failed(errorMessage);
         }
     }
 
